@@ -670,9 +670,43 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
 }
 
 
-//TODO in work
-double DMorphInk::getMorphCostOneWay() {
-
+//TODO test
+double DMorphInk::morphOneWay(	const DImage &srcFrom, 
+							const DImage &srcTo, 
+							int bandWidthDP, 
+							double nonDiagonalCostDP, 
+							int meshSpacingStatic,
+				  			int numRefinementsStatic, 
+				  			double meshDiv) {
+	int numImprovesPerRefinement = 3;
+	int meshSpacing = (int)(srcFrom.height() / meshDiv);
+	if(meshSpacing < 4)
+	  	meshSpacing = 4;
+	if(-1 != meshSpacingStatic)
+	 	meshSpacing = meshSpacingStatic;
+	init(srcFrom, srcTo, false, meshSpacing, bandWidthDP,nonDiagonalCostDP);
+	if(fOnlyDoCoarseAlignment){
+	}
+	else{
+	  	int numRefinements = 0;
+	  	while(meshSpacing > 16){
+	    		meshSpacing /=2;
+	    		++numRefinements;
+	  	}
+	  	
+	  	if(-1 != numRefinementsStatic)
+	    		numRefinements = numRefinementsStatic;    
+	   
+	   	//TODO Brian: Make this refined until no improvment found?
+	  	for(int ref=0; ref <= numRefinements; ++ref){
+	   		for(int imp=0; imp < numImprovesPerRefinement; ++imp){
+				improveMorph();
+	    		}
+	    		if(ref < numRefinements){
+				refineMeshes();
+	    		}
+	  	}
+	}
 }
 
 
@@ -720,36 +754,13 @@ double DMorphInk::getWordMorphCost(const DImage &src0,
   
 
   //get cost to morph from src0 to src1
-  
-  meshSpacing = (int)(src0.height() / meshDiv);
-  if(meshSpacing < 4)
-    	meshSpacing = 4;
-  if(-1 != meshSpacingStatic)
-   	meshSpacing = meshSpacingStatic;
-  init(src0, src1, false, meshSpacing, bandWidthDP,nonDiagonalCostDP);
-
-  if(fOnlyDoCoarseAlignment){
-  }
-  else{
-    	numRefinements = 0;
-    	while(meshSpacing > 16){
-      	meshSpacing /=2;
-      	++numRefinements;
-    	}
-    	
-    	if(-1 != numRefinementsStatic)
-      	numRefinements = numRefinementsStatic;    
-     
-     //TODO Brian: Make this refined until no improvment found?
-    	for(int ref=0; ref <= numRefinements; ++ref){
-     	for(int imp=0; imp < numImprovesPerRefinement; ++imp){
-			improveMorph();
-      	}
-      	if(ref < numRefinements){
-			refineMeshes();
-      	}
-    	}
-  }
+  morphOneWay(	&src0, 
+			&src1, 
+			bandWidthDP, 
+			nonDiagonalCostDP, 
+			meshSpacingStatic,
+			numRefinementsStatic, 
+			meshDiv);
   cost = getCost() + lenPen;
   warpCostDPfull = warpCostDP + warpCostDPv;
   warpCostDPhoriz = warpCostDP;
@@ -758,34 +769,14 @@ double DMorphInk::getWordMorphCost(const DImage &src0,
     return cost;
 
 
-  //get cost to morph from src0 to src1
-  meshSpacing = (int)(src1.height() / meshDiv);
-  if(meshSpacing < 4)
-    meshSpacing = 4;
-  if(-1 != meshSpacingStatic)
-    meshSpacing = meshSpacingStatic;
-
-  init(src1, src0, false, meshSpacing, bandWidthDP,nonDiagonalCostDP);
-
-  if(fOnlyDoCoarseAlignment){
-  }
-  else{
-    	numRefinements = 0;
-    	while(meshSpacing > 16){
-      	meshSpacing /=2;
-      	++numRefinements;
-    	}
-    	if(-1 != numRefinementsStatic)
-      	numRefinements = numRefinementsStatic;
-    	for(int ref=0; ref <= numRefinements; ++ref){
-      	for(int imp=0; imp < numImprovesPerRefinement; ++imp){
-			improveMorph();
-      	}
-      	if(ref < numRefinements){
-			refineMeshes();
-      	}
-    	}
-  }
+  //get cost to morph from src1 to src0
+  morphOneWay(	&src1, 
+			&src0, 
+			bandWidthDP, 
+			nonDiagonalCostDP, 
+			meshSpacingStatic,
+			numRefinementsStatic, 
+			meshDiv);
   cost2 = getCost() + lenPen;
   warpCostDPfull += warpCostDP + warpCostDPv;
   warpCostDPhoriz += warpCostDP;

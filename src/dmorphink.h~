@@ -51,13 +51,7 @@ class DMorphInk{
 public:
   DMorphInk();
   ~DMorphInk();
-  double DMorphInk::morphOneWay(	const DImage &srcFrom, 
-							const DImage &srcTo, 
-							int bandWidthDP, 
-							double nonDiagonalCostDP, 
-							int meshSpacingStatic,
-				  			int numRefinementsStatic, 
-				  			double meshDiv);
+
   double getWordMorphCost(const DImage &src0, const DImage &src1,
 			  int bandWidthDP = 15,
 			  double nonDiagonalCostDP=0.,
