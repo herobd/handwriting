@@ -187,7 +187,7 @@ DImage clipWordImageToInk(DImage &img){
 	if(y > y1)
 	  y1 = y;
       }
-      else if(0xff != p8[idx]){// not 255 or 0!
+      else if(0xff != p8[idx]){// not 25word_morphing ../datasets/smith_jhl_vol1_lasso/smith_jhl_vol1_lasso.prj_intermediates/ 0 999 1000 1999 0.1 -1 -1 -1 4.0 14 10 /tmp/smith_results.dat5 or 0!
 	fprintf(stderr,"clipWordImageToInk() expects all pixel values to be ink(0) or background(255).  saw %d at x,y=%d,%d\n", p8[idx], x, y);
 	exit(1);
       }

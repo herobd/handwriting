@@ -51,13 +51,14 @@ class DMorphInk{
 public:
   DMorphInk();
   ~DMorphInk();
-  double DMorphInk::morphOneWay(	const DImage &srcFrom, 
-							const DImage &srcTo, 
-							int bandWidthDP, 
-							double nonDiagonalCostDP, 
-							int meshSpacingStatic,
-				  			int numRefinementsStatic, 
-				  			double meshDiv);
+  void morphOneWay(	const DImage &srcFrom, 
+				const DImage &srcTo, 
+				int bandWidthDP, 
+				double nonDiagonalCostDP, 
+				int meshSpacingStatic,
+				int numRefinementsStatic, 
+				double meshDiv);
+  void saveCurrentMorph();
   double getWordMorphCost(const DImage &src0, const DImage &src1,
 			  int bandWidthDP = 15,
 			  double nonDiagonalCostDP=0.,
@@ -574,6 +575,11 @@ inline void DMorphInk::warpPointNew(double s, double t, int meshPointIdx,
 
 //cost of a vertex position (using distance map of warped ink pixels in 4 quads)
 //inlining this function speeds us up about 10%
+/*
+r: row in rgPoints1X,Y
+c: columm in rgPoints1X,Y
+x1, y1: the location of the current control point (in img1)
+*/
 inline double DMorphInk::getVertexPositionCostNew(int r, int c,
 						  double x1, double y1){
   double sumCost = 0.;

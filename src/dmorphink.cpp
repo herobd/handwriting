@@ -8,14 +8,17 @@
 #include "dwordfeatures.h"
 #include <string.h>
 
+#include <signal.h>
+
 #define SUBSAMPLE 1
-#define SAVE_IMAGES 1
+#define SAVE_IMAGES 0
 #define NORMALIZE_VERT_PROF 0
 #define USE_DISTANCE_FROM_DP_COST 0
 #define OUTPUT_DEBUG_FINAL_COST 0
 
 #define MAXDISTCOLORS 500 /*for heatmaps*/
 
+int DEBUG_stopAtStep = 1;
 
 //#define COMPENSATE_FOR_OOB_DISTMAP 1 //we now do this all the time
 
@@ -217,7 +220,6 @@ void DMorphInk::init(const DImage &src0, const DImage &src1, bool fMakeCopies,
   rgTempMA0idx = (int*)malloc(sizeof(double)*(1+lenMA0));
   D_CHECKPTR(rgTempMA0idx);
 #endif
-Fortunately, h
 
   rgTempMA0X = (double*)malloc(sizeof(double)*lenMA0);
   D_CHECKPTR(rgTempMA0X);
@@ -671,7 +673,7 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
 
 
 //TODO test
-double DMorphInk::morphOneWay(	const DImage &srcFrom, 
+void DMorphInk::morphOneWay(	const DImage &srcFrom, 
 							const DImage &srcTo, 
 							int bandWidthDP, 
 							double nonDiagonalCostDP, 
@@ -702,6 +704,7 @@ double DMorphInk::morphOneWay(	const DImage &srcFrom,
 	   		for(int imp=0; imp < numImprovesPerRefinement; ++imp){
 				improveMorph();
 	    		}
+	    		saveCurrentMorph();
 	    		if(ref < numRefinements){
 				refineMeshes();
 	    		}
@@ -709,7 +712,12 @@ double DMorphInk::morphOneWay(	const DImage &srcFrom,
 	}
 }
 
-
+void DMorphInk::saveCurrentMorph()
+{
+	//do stuff
+	if (DEBUG_stopAtStep)
+		raise(SIGINT);
+}
 
 
 
@@ -734,9 +742,6 @@ double DMorphInk::getWordMorphCost(const DImage &src0,
 				   int numRefinementsStatic,
 				   double meshDiv,
 				   double lengthMismatchPenalty){
-  int meshSpacing;
-  int numRefinements;
-  int numImprovesPerRefinement = 3;
   double cost = 0.;
   double cost2 = 0.;
 
@@ -754,8 +759,8 @@ double DMorphInk::getWordMorphCost(const DImage &src0,
   
 
   //get cost to morph from src0 to src1
-  morphOneWay(	&src0, 
-			&src1, 
+  morphOneWay(	src0, 
+			src1, 
 			bandWidthDP, 
 			nonDiagonalCostDP, 
 			meshSpacingStatic,
@@ -770,8 +775,8 @@ double DMorphInk::getWordMorphCost(const DImage &src0,
 
 
   //get cost to morph from src1 to src0
-  morphOneWay(	&src1, 
-			&src0, 
+  morphOneWay(	src1, 
+			src0, 
 			bandWidthDP, 
 			nonDiagonalCostDP, 
 			meshSpacingStatic,
@@ -1091,13 +1096,13 @@ void DMorphInk::improveMorph(){
   // printf("improving morph with radiusX=%d radiusY=%d\n",radiusX, radiusY);
   for(int r=0, idx=0; r < numPointRows; ++r){
     	for(int c=0; c < numPointCols; ++c, ++idx){
-      	double Vx, Vy;//current x,y (in img1) of control point
-      	double Vcost;//cost at Vx,Vy
+      	double curControlX, curControlY;//current x,y (in img1) of control point
+      	double Vcost;//cost at curControlX,curControlY
       	double bestX, bestY;//best (lowest cost) x,y found so far
       	double bestCost;//best (lowest) cost
       	int minY, maxY, minX, maxX;//bounds of search area
-      	Vx = rgPoints1X[r*numPointCols+c];
-      	Vy = rgPoints1Y[r*numPointCols+c];
+      	curControlX = rgPoints1X[r*numPointCols+c];
+      	curControlY = rgPoints1Y[r*numPointCols+c];
 #if SPEED_TEST
       	if(!rgPlacePoints0[r*numPointCols+c]){
 			//printf("skipping r=%d c=%d\n",r, c);
@@ -1129,24 +1134,24 @@ void DMorphInk::improveMorph(){
 
       	Vcost = bestCost =
 #if NEW_WARP
-		getVertexPositionCostNew(r, c, Vx, Vy);
+		getVertexPositionCostNew(r, c, curControlX, curControlY);
 #else
-		getVertexPositionCost(r, c, Vx, Vy);
+		getVertexPositionCost(r, c, curControlX, curControlY);
 #endif
 
-      	bestX = Vx;
-      	bestY = Vy;
+      	bestX = curControlX;
+      	bestY = curControlY;
 
-      	minY = Vy-radiusY;
+      	minY = curControlY-radiusY;
       	// if(minY<0)
       	// 	minY=0;
-      	maxY = Vy+radiusY;
+      	maxY = curControlY+radiusY;
       	// if(maxY>=h1)
       	// 	maxY=h1-1;
-      	minX = Vx-radiusX;
+      	minX = curControlX-radiusX;
       	// if(minX<0)
       	// 	minX=0;
-      	maxX = Vx+radiusX;
+      	maxX = curControlX+radiusX;
       	// if(maxX>=w1)
       	// 	maxX=w1-1;
       		//Constrain the search area with volleyball position rules. (top
@@ -1210,7 +1215,7 @@ void DMorphInk::improveMorph(){
 	  			curCost = getVertexPositionCost(r, c, tx, ty);
 #endif
 
-	  			curCost += sqrt((tx-Vx)*(tx-Vx)+(ty-Vy)*(ty-Vy))/100.;
+	  			curCost += sqrt((tx-curControlX)*(tx-curControlX)+(ty-curControlY)*(ty-curControlY))/100.;
 
 	  			if(curCost < bestCost){
 	    				bestCost = curCost;
