@@ -298,7 +298,7 @@ void DMorphInk::init(const DImage &src0, const DImage &src1, bool fMakeCopies,
    initialColSpacing or initialRowSpacing (respectively) will be used
    - this assumes that they have been previously set, of course.*/
 void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
-			    int bandRadius, double nonDiagonalDPcost){
+			    int bandRadius, double nonDiagonalDPcost) {
   int numPoints;
   //int lastColW;
   int numMeshPointCols;
@@ -308,9 +308,17 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
     columnSpacing = initialColSpacing;
   if(-1==rowSpacing)
     rowSpacing = initialRowSpacing;
+  
+  if(-2==columnSpacing)
+    columnSpacing = w0;// /2;
+  if(-2==rowSpacing)
+    rowSpacing = h0;// /2;
+    
+  //TODO We also need to halve this every iteration...
 
   numMeshPointCols = 1 + (w0+columnSpacing-1)/columnSpacing;
   numMeshPointRows = 1 + (h0+rowSpacing-1)/rowSpacing;
+  
 
   // release memory if already being used
   if(numPointRows>0){
@@ -1566,7 +1574,63 @@ void DMorphInk::improveMorphSimAnn(){
 		int cur_ann_Y = curControlY;
 		double temp = ///
 		for (int i = 0; 300 < i; i++) {
+			temp = get_new_temp(i);
+			std::priority_queue<neighbor_point> neighbors;
+			neighbor_point left;
+			neighbor_point right;
+			neighbor_point up;
+			neighbor_point down;
 			
+			left.x = cur_ann_X-1;
+			left.y = cur_ann_Y;
+#if NEW_WARP
+		  	left.cost = getVertexPositionCostNew(r, c, left.x, left.y);
+#else
+	  		left.cost = getVertexPositionCost(r, c, left.x, left.y);
+#endif 		
+			neighbors.push(left);
+			
+			right.x = cur_ann_X+1;
+			right.y = cur_ann_Y;
+#if NEW_WARP
+		  	right.cost = getVertexPositionCostNew(r, c, right.x, right.y);
+#else
+	  		right.cost = getVertexPositionCost(r, c, right.x, right.y);
+#endif 		
+			neighbors.push(right);
+			
+			up.x = cur_ann_X;
+			up.y = cur_ann_Y-1;
+#if NEW_WARP
+		  	up.cost = getVertexPositionCostNew(r, c, up.x, up.y);
+#else
+	  		up.cost = getVertexPositionCost(r, c, up.x, up.y);
+#endif 		
+			neighbors.push(up);
+			
+			down.x = cur_ann_X;
+			down.y = cur_ann_Y+1;
+#if NEW_WARP
+		  	down.cost = getVertexPositionCostNew(r, c, down.x, down.y);
+#else
+	  		down.cost = getVertexPositionCost(r, c, down.x, down.y);
+#endif 
+			neighbors.push(down);
+			
+			for (int i = 0; i <4; i++) {
+				neighbor_point new_loc = neighbors.pop();
+				if (acceptProbability(new_loc.cost, Vcost, temp) > (rand() % 100)/100.0) {
+					cur_ann_X = new_loc.x;
+					cur_ann_Y = new_loc.y;
+					Vcost new_loc.cost;
+				}
+				
+				if (new_loc.cost < bestCost) {
+					bestX = new_loc.x;
+					bestY = new_loc.y;
+					bestCost = new_loc.cost;
+				}
+			}
 		}
 
 	      	rgPoints1X[r*numPointCols+c] = bestX;
@@ -1575,6 +1639,17 @@ void DMorphInk::improveMorphSimAnn(){
   }
   // free(rgTempMA0X);
   // free(rgTempMA0Y);
+}
+
+double get_new_temp(int time) {
+	return 301 - time;//TODO this is just made up
+}
+
+double acceptProbability(double newCost, double oldCost, double temp) {
+	if (newCost < oldCost)//geedy, always take best. This might not be ideal
+		return 1;
+	
+	return (temp/300) * (newCost-oldCost)/oldCost;//TODO this is just made-up
 }
 //////////////////////////
 

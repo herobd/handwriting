@@ -211,6 +211,15 @@ public:
 
 
   bool *rgPlacePoints0;//if false, no points in 4 adjacent quads, so don't place
+  
+  
+  	struct neighbor_point {
+		double cost;
+		int x;
+		int y;
+		bool operator<(const neighbor_point& other) const
+			{ return cost > other.cost; }
+	};
 };
 
 
