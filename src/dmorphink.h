@@ -82,6 +82,9 @@ public:
   void refineMeshes();
   void improveMorph();
   void improveMorphFast();
+  void improveMorphSimAnn();
+  		double acceptProbability(double newCost, double oldCost, double temp);
+  		double get_new_temp(int time);
   double getVertexPositionCost(int r, int c, double x1, double y1);
   bool warpPoint(double x, double y, double *xp, double *yp, bool fDebugPrint=false);
 #if NEW_WARP

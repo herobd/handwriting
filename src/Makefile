@@ -9,12 +9,12 @@ LIBDIR=../lib
 #where to dump object files
 OBJDIR=../obj
 #C compiler flags (use += so user can pass stuff in as options to make)
-CFLAGS+= -Wall -O3 -g -fPIC -pthread
+CFLAGS+= -Wall -O0 -g -fPIC -pthread #Brian edit, used to be O3
 #C/C++ PreProcessor flags (use += so we don't clobber what user passes to make)
 CPPFLAGS+=
 #C++ compiler flags (use += so we don't clobber what user passes to make)
 #CXXFLAGS+= -Wall -march=native -O3 -pg -rdynamic -fPIC
-CXXFLAGS+= -Wall -march=native -O3 -g -fPIC -pthread
+CXXFLAGS+= -Wall -march=native -O0 -g -fPIC -pthread #Brian edit, used to be O3
 #linker flags (use += so we don't clobber what user passes to make)
 LDFLAGS+=
 #name of the library to create

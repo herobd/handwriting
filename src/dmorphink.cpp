@@ -7,6 +7,7 @@
 #include "dtimer.h"
 #include "dwordfeatures.h"
 #include <string.h>
+#include <queue>
 
 #include <signal.h>
 
@@ -18,7 +19,7 @@
 
 #define MAXDISTCOLORS 500 /*for heatmaps*/
 
-int DEBUG_stopAtStep = 1;
+int DEBUG_stopAtStep = 0;
 
 //#define COMPENSATE_FOR_OOB_DISTMAP 1 //we now do this all the time
 
@@ -688,7 +689,7 @@ void DMorphInk::morphOneWay(	const DImage &srcFrom,
 							int meshSpacingStatic,
 				  			int numRefinementsStatic, 
 				  			double meshDiv) {
-	int numImprovesPerRefinement = 3;
+	int numImprovesPerRefinement = 3;2.3328103658311496
 	int meshSpacing = (int)(srcFrom.height() / meshDiv);
 	if(meshSpacing < 4)
 	  	meshSpacing = 4;
@@ -699,7 +700,7 @@ void DMorphInk::morphOneWay(	const DImage &srcFrom,
 	}
 	else{
 	  	int numRefinements = 0;
-	  	while(meshSpacing > 16){
+	  	while(meshSpacing > 16){//Why is this 16?
 	    		meshSpacing /=2;
 	    		++numRefinements;
 	  	}
@@ -708,11 +709,16 @@ void DMorphInk::morphOneWay(	const DImage &srcFrom,
 	    		numRefinements = numRefinementsStatic;    
 	   
 	   	//TODO Brian: Make this refined until no improvment found?
-	  	for(int ref=0; ref <= numRefinements; ++ref){
+	   	double last_score = getCost();
+	  	//for(int ref=0; ref <= numRefinements; ++ref){
+	    	for(int ref=0; ref <= 50; ++ref){//cap at 50
 	   		for(int imp=0; imp < numImprovesPerRefinement; ++imp){
 				improveMorph();
 	    		}
 	    		saveCurrentMorph();
+	    		double cur_cost = getCost();
+	    		if (last_cost <= cur_cost)// < REFINE_COST_DELTA_CUTOFF)
+	    			break;
 	    		if(ref < numRefinements){
 				refineMeshes();
 	    		}
@@ -1572,7 +1578,7 @@ void DMorphInk::improveMorphSimAnn(){
 	      	}//for ty*/
 		int cur_ann_X = curControlX;
 		int cur_ann_Y = curControlY;
-		double temp = ///
+		double temp = 1;///TODO what should the init be?
 		for (int i = 0; 300 < i; i++) {
 			temp = get_new_temp(i);
 			std::priority_queue<neighbor_point> neighbors;
@@ -1618,11 +1624,11 @@ void DMorphInk::improveMorphSimAnn(){
 			neighbors.push(down);
 			
 			for (int i = 0; i <4; i++) {
-				neighbor_point new_loc = neighbors.pop();
+				neighbor_point new_loc = neighbors.top();
+				neighbors.pop();
 				if (acceptProbability(new_loc.cost, Vcost, temp) > (rand() % 100)/100.0) {
 					cur_ann_X = new_loc.x;
 					cur_ann_Y = new_loc.y;
-					Vcost new_loc.cost;
 				}
 				
 				if (new_loc.cost < bestCost) {
@@ -1641,11 +1647,11 @@ void DMorphInk::improveMorphSimAnn(){
   // free(rgTempMA0Y);
 }
 
-double get_new_temp(int time) {
+double DMorphInk::get_new_temp(int time) {
 	return 301 - time;//TODO this is just made up
 }
 
-double acceptProbability(double newCost, double oldCost, double temp) {
+double DMorphInk::acceptProbability(double newCost, double oldCost, double temp) {
 	if (newCost < oldCost)//geedy, always take best. This might not be ideal
 		return 1;
 	
@@ -1660,7 +1666,10 @@ double acceptProbability(double newCost, double oldCost, double temp) {
 
 
 
-//What does this do?
+//Note: What does this do?
+//this will increase number of control points by adding them inbetween the
+//current ones (and in the middles). There's a lot of bounds checking that makes
+//it confusing
 
 // this version has been modified to only split the last row/col when they are
 // larger than curRowSpacing/curColSpacing and not split in half, but so all
