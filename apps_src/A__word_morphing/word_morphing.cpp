@@ -86,7 +86,7 @@ void* word_morphing_thread_func(void *params){
   for(int tr=(pparms->threadNum); tr < numTrain; tr+=(pparms->numThreads)){
   	double morphCost=0.;
   	double DPcost=0.;
-
+	
 #if DO_FAST_PASS_FIRST
     	if(pparms->fFastPass)
       	morphCost = mobj.getWordMorphCostFast(*(pparms->pimgTest),

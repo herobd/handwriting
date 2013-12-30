@@ -648,7 +648,7 @@ void DImage::pasteFromImage(int dstX, int dstY,
 		  &((imgSrc.pData)[srcChanOffs+
 				   (yDst+srcY)*srcRowLen + srcX*pxlLen]),
 		  rowLen);
-	}/* end for yDst */
+	}/* end for yDgrepst */
       }
     }/* end for chan */
   } /* end else multiple non-interleaved channels of data */

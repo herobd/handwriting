@@ -8,6 +8,7 @@
 #include "dwordfeatures.h"
 #include <string.h>
 #include <queue>
+#include <stdlib.h>
 
 #include <signal.h>
 
@@ -19,7 +20,7 @@
 
 #define MAXDISTCOLORS 500 /*for heatmaps*/
 
-int DEBUG_stopAtStep = 0;
+int DEBUG_stopAtStep = 1;
 
 //#define COMPENSATE_FOR_OOB_DISTMAP 1 //we now do this all the time
 
@@ -121,6 +122,12 @@ DMorphInk::~DMorphInk(){
   curRowSpacing = 0.;
 }
 
+/*
+What does init do?
+Creates distance map between two images
+Creates MA images
+Calls resetMeshes()
+*/
 void DMorphInk::init(const DImage &src0, const DImage &src1, bool fMakeCopies,
 		     int initialMeshSpacing, int bandRadius,
 		     double nonDiagonalDPcost){
@@ -279,7 +286,6 @@ void DMorphInk::init(const DImage &src0, const DImage &src1, bool fMakeCopies,
   imgMA1.invertGrayscale();
   // imgDist1 = DDistanceMap::getDistFromInkBitonal(imgMA1,1000,-1000);
   DDistanceMap::getDistFromInkBitonal_(imgDist1, imgMA1,1000,-1000);
-  imgMA1.invertGrayscale();
 #if SAVE_IMAGES
   imgMA1.save("/tmp/imgMA1.ppm");
   imgDist1.save("/tmp/imgDist1.ppm");
@@ -289,6 +295,7 @@ void DMorphInk::init(const DImage &src0, const DImage &src1, bool fMakeCopies,
 	      bandRadius,nonDiagonalDPcost);
   // printf("init() has run to just after resetMeshes().  calling exit()\n");
   // exit(1);
+  //saveCurrentMorph(0);
 }
 
 
@@ -297,7 +304,10 @@ void DMorphInk::init(const DImage &src0, const DImage &src1, bool fMakeCopies,
 /**The last column and row may be different size than the rest so we
    can stay on pixel boundaries in mesh0. If -1 is specified, the
    initialColSpacing or initialRowSpacing (respectively) will be used
-   - this assumes that they have been previously set, of course.*/
+   - this assumes that they have been previously set, of course.
+   
+   POST CONDITION:
+   MA0 and MA1 are aligned to */
 void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
 			    int bandRadius, double nonDiagonalDPcost) {
   int numPoints;
@@ -310,15 +320,15 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
   if(-1==rowSpacing)
     rowSpacing = initialRowSpacing;
   
-  if(-2==columnSpacing)
-    columnSpacing = w0;// /2;
-  if(-2==rowSpacing)
-    rowSpacing = h0;// /2;
+  //brian if(-2==columnSpacing)
+    columnSpacing = w0;
+  //brian if(-2==rowSpacing)
+    rowSpacing = h0;
     
-  //TODO We also need to halve this every iteration...
-
-  numMeshPointCols = 1 + (w0+columnSpacing-1)/columnSpacing;
-  numMeshPointRows = 1 + (h0+rowSpacing-1)/rowSpacing;
+  
+  // Brian change
+  numMeshPointCols = 2;//1 + (w0+columnSpacing-1)/columnSpacing;
+  numMeshPointRows = 2;//1 + (h0+rowSpacing-1)/rowSpacing;
   
 
   // release memory if already being used
@@ -333,8 +343,14 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
     free(rgPointsPrevX);
     free(rgPointsPrevY);
   }
+  
   numPoints = numMeshPointCols * numMeshPointRows;
+  numPointRows=numMeshPointRows;
+  numPointCols=numMeshPointCols;
+  
   // printf("A: numPoints=%d\n",numPoints);
+  
+  
   //allocate memory
   rgPoints0X = (double*)malloc(sizeof(double)*numPoints);
   D_CHECKPTR(rgPoints0X);
@@ -362,25 +378,28 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
   //   ma0prevPosX[i] = ma0prevPosY[i] = -999.;
   // }
 
-  numPointRows=numMeshPointRows;
-  numPointCols=numMeshPointCols;
+  
+  
   //set the x,y position of each control point in mesh0
   for(int py=0, idx=0; py < numPointRows; ++py){
     for(int px = 0; px < numPointCols; ++px, ++idx){
       rgPoints0X[idx] = px * columnSpacing;
       if(rgPoints0X[idx] >= w0)//last column may not be as wide
-	rgPoints0X[idx] = w0-1;
+		rgPoints0X[idx] = w0-1;
       rgPoints0Y[idx] = py * rowSpacing;
       if(rgPoints0Y[idx] >= h0)//last row may not be as tall
-	rgPoints0Y[idx] = h0-1;
+		rgPoints0Y[idx] = h0-1;
       // rgPointsDPX[idx] =  rgPoints0X[idx];
       // rgPointsDPY[idx] =  rgPoints0Y[idx];
        rgPointsDPX[idx] =  10*px;
        rgPointsDPY[idx] =  10*py;
     }
   }
+  
+  
   //do DP x-alignment of img0 to img1 to decide how to set warp1 x-coords
   //  fprintf(stderr, "TODO: clean up this code!  variable names confusing,etc!\n");
+  
   DProfile prof1, prof2;
 
   DFeatureVector fv1, fv2;
@@ -559,6 +578,9 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
   free(rgTableV);
   free(rgXMappings0to1);
   free(rgYMappings0to1);
+  
+  
+  
   this->initialColSpacing = columnSpacing;
   this->initialRowSpacing = rowSpacing;
   curColSpacing = initialColSpacing;
@@ -655,6 +677,8 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
   imgStartPoints.create(w1,h1,DImage::DImage_u8);
   imgStartPoints.fill(255);
 #endif
+
+  //What is this doing, the mesh0 hasn't changed has it? why aren't we doing this for mesh1?
   for(int i=0; i < lenMA0; ++i){
     double xp,yp;
      if(warpPoint(rgMA0X[i], rgMA0Y[i], &xp, &yp)){
@@ -689,7 +713,7 @@ void DMorphInk::morphOneWay(	const DImage &srcFrom,
 							int meshSpacingStatic,
 				  			int numRefinementsStatic, 
 				  			double meshDiv) {
-	int numImprovesPerRefinement = 3;2.3328103658311496
+	int numImprovesPerRefinement = 3;//2.3328103658311496
 	int meshSpacing = (int)(srcFrom.height() / meshDiv);
 	if(meshSpacing < 4)
 	  	meshSpacing = 4;
@@ -709,28 +733,90 @@ void DMorphInk::morphOneWay(	const DImage &srcFrom,
 	    		numRefinements = numRefinementsStatic;    
 	   
 	   	//TODO Brian: Make this refined until no improvment found?
-	   	double last_score = getCost();
+	   	double last_cost = getCost();
+	   	
+	   	saveCurrentMorph(0);
 	  	//for(int ref=0; ref <= numRefinements; ++ref){
 	    	for(int ref=0; ref <= 50; ++ref){//cap at 50
-	   		for(int imp=0; imp < numImprovesPerRefinement; ++imp){
-				improveMorph();
+	    		
+	   		//for(int imp=0; imp < numImprovesPerRefinement; ++imp){
+			//	improveMorph();
+	    		//}
+	    		double minor_last_cost = getCost();
+	    		for (int imps = 0; imps <= 50; ++imps){
+	    			improveMorph();
+	    			if (minor_last_cost <= getCost())// < IMPROVE_COST_DELTA_CUTOFF) TODO:(1b) adjust this
+	    				break;
 	    		}
-	    		saveCurrentMorph();
+	    		
+	    		saveCurrentMorph(2*ref+1);
 	    		double cur_cost = getCost();
-	    		if (last_cost <= cur_cost)// < REFINE_COST_DELTA_CUTOFF)
+	    		if (last_cost <= cur_cost)// < REFINE_COST_DELTA_CUTOFF) TODO:(1b) adjust this
 	    			break;
-	    		if(ref < numRefinements){
-				refineMeshes();
-	    		}
+	    		//if(ref < numRefinements){
+			refineMeshes();
+	    		//}
+	    		saveCurrentMorph(2*ref+2);
 	  	}
 	}
 }
 
-void DMorphInk::saveCurrentMorph()
+void DMorphInk::saveCurrentMorph(int iteration)
 {
-	//do stuff
+
+	//saveCurrentMAImagesAndControlPoints(iteration);
+	DImage both = getBothMedialAxesWithMesh(1,1);
+	std::string filePath ("./tmp/debug_images/both");
+	std::string num = std::to_string(iteration);
+	filePath += num;
+	filePath += ".pgm";
+	both.save(filePath.c_str());
+	/*DImage one = getMedialAxisWithMesh(0);
+	DImage two = getMedialAxisWithMesh(1);
+	std::string filePath ("./tmp/debug_images/one");
+	std::string num = std::to_string(iteration);
+	filePath += num;
+	filePath += ".pgm";
+	one.save(filePath.c_str());
+	
+	std::string filePath2 ("./tmp/debug_images/two");
+	std::string num2 = std::to_string(iteration);
+	filePath2 += num2;
+	filePath2 += ".pgm";
+	two.save(filePath2.c_str());*/
+
 	if (DEBUG_stopAtStep)
 		raise(SIGINT);
+	
+}
+
+
+//Brian debug method
+void DMorphInk::saveCurrentMAImagesAndControlPoints(int id) {
+	DImage allOverlay;
+  	allOverlay.create(w0>w1?w0:w1,h0>h1?h0:h1,DImage::DImage_RGB);
+  	allOverlay.fill(0,0,0);
+	for (int i = 0; i < lenMA0; i++)
+	{
+		allOverlay.drawPixel(rgMA0X[i],rgMA0Y[i],255,0,0);
+	}
+	for (int i = 0; i < lenMA1; i++)
+	{
+		allOverlay.drawPixel(rgMA1X[i],rgMA1Y[i],0,255,0);
+	}
+	for (int r = 0; r < numPointRows; r++) {
+		for (int c = 0; c < numPointCols; c++) {
+			allOverlay.drawPixel(rgPoints0X[c],rgPoints0Y[r],255,0,255);
+			allOverlay.drawPixel(rgPoints1X[c],rgPoints1Y[r],0,255,255);
+		}
+	}
+	std::string filePath ("./tmp/debug_images/overlay");
+	//char* number = "000\0";
+	//itoa(id,number,10);
+	std::string num = std::to_string(id);
+	filePath += num;
+	filePath += ".pgm";
+	allOverlay.save(filePath.c_str());
 }
 
 
@@ -3317,7 +3403,7 @@ DImage DMorphInk::getMovementHeatmapAtTime(double dblTime,
 	distanceMoved = sqrt((xp - rgDPMA0X[ma_pt])*(xp - rgDPMA0X[ma_pt]) +
 			     (yp - rgDPMA0Y[ma_pt])*(yp - rgDPMA0Y[ma_pt]));
 	distMoved = (int)(distanceMoved*60);
-	if(distMoved > (MAXDISTCOLORS-1))
+	if(distMoved > (MAXDISTCOLORS-1))//Brian: Is this actually getting hit ever?
 	  distMoved = MAXDISTCOLORS-1;
 	if(distMoved < 0)
 	  distMoved = 0;
