@@ -735,6 +735,7 @@ void DMorphInk::morphOneWay(	const DImage &srcFrom,
 	   	//TODO Brian: Make this refined until no improvment found?
 	   	double last_cost = getCost();
 	   	
+	   	refineMeshes();
 	   	saveCurrentMorph(0);
 	  	//for(int ref=0; ref <= numRefinements; ++ref){
 	    	for(int ref=0; ref <= 50; ++ref){//cap at 50
@@ -744,7 +745,7 @@ void DMorphInk::morphOneWay(	const DImage &srcFrom,
 	    		//}
 	    		double minor_last_cost = getCost();
 	    		for (int imps = 0; imps <= 50; ++imps){
-	    			improveMorph();
+	    			improveMorphOnlyOnNewPoints();
 	    			if (minor_last_cost <= getCost())// < IMPROVE_COST_DELTA_CUTOFF) TODO:(1b) adjust this
 	    				break;
 	    		}
@@ -1196,6 +1197,164 @@ void DMorphInk::improveMorph(){
   // printf("improving morph with radiusX=%d radiusY=%d\n",radiusX, radiusY);
   for(int r=0, idx=0; r < numPointRows; ++r){
     	for(int c=0; c < numPointCols; ++c, ++idx){
+      	double curControlX, curControlY;//current x,y (in img1) of control point
+      	double Vcost;//cost at curControlX,curControlY
+      	double bestX, bestY;//best (lowest cost) x,y found so far
+      	double bestCost;//best (lowest) cost
+      	int minY, maxY, minX, maxX;//bounds of search area
+      	curControlX = rgPoints1X[r*numPointCols+c];
+      	curControlY = rgPoints1Y[r*numPointCols+c];
+#if SPEED_TEST
+      	if(!rgPlacePoints0[r*numPointCols+c]){
+			//printf("skipping r=%d c=%d\n",r, c);
+			continue;
+      	}
+#endif 	//SPEED_TEST
+
+      	//decide which MedialAxis0 pixels are within the four quads of this ctl pt
+      	tempMA0len = 0;
+      	// for(int i=0; i < lenMA0; ++i){
+      	for(int i=0; i < lenMA0; i+=SUBSAMPLE){
+			int maRow;
+			int maCol;
+			maCol = (int)(rgMA0X[i] / curColSpacing);
+			maRow = (int)(rgMA0Y[i] / curRowSpacing);
+			//is medial axis point within the four quads this control pt affects?
+			//if((maRow>=(r-1)) && (maRow<=r) && (maCol>=(c-1)) && (maCol<=c)){
+			if(((maRow==(r-1)) || (maRow==r)) && ((maCol==(c-1)) || (maCol==c))){
+#if NEW_WARP
+	  			rgTempMA0idx[tempMA0len] = i;
+#else//also need these if debugging
+	  			rgTempMA0X[tempMA0len] = rgMA0X[i];
+	  			rgTempMA0Y[tempMA0len] = rgMA0Y[i];
+#endif
+	  			++tempMA0len;
+			}
+      	}
+
+
+      	Vcost = bestCost =
+#if NEW_WARP
+		getVertexPositionCostNew(r, c, curControlX, curControlY);
+#else
+		getVertexPositionCost(r, c, curControlX, curControlY);
+#endif
+
+      	bestX = curControlX;
+      	bestY = curControlY;
+
+      	minY = curControlY-radiusY;
+      	// if(minY<0)
+      	// 	minY=0;
+      	maxY = curControlY+radiusY;
+      	// if(maxY>=h1)
+      	// 	maxY=h1-1;
+      	minX = curControlX-radiusX;
+      	// if(minX<0)
+      	// 	minX=0;
+      	maxX = curControlX+radiusX;
+      	// if(maxX>=w1)
+      	// 	maxX=w1-1;
+      		//Constrain the search area with volleyball position rules. (top
+      	//corners must stay above bottom corners, left corners left of
+      	//right corners).  TODO:I might want to see about relaxing this
+      	//so they just can't cross the line between the two constraining
+      	//corners instead of either corner, but then I'd have to do the
+      	//check within the tight loop.  Either way, I can still get
+      	//concave quads, but I don't think quads that cross edges
+      	if(r>0){
+			if(minY < rgPoints1Y[(r-1)*numPointCols+c])
+	  			minY = rgPoints1Y[(r-1)*numPointCols+c];
+	  			
+			if((c>0) && (minY < rgPoints1Y[(r-1)*numPointCols+c-1]))
+	  			minY = rgPoints1Y[(r-1)*numPointCols+c-1];
+	  			
+			if((c<(numPointCols-1))&&(minY < rgPoints1Y[(r-1)*numPointCols+c+1]))
+	  			minY = rgPoints1Y[(r-1)*numPointCols+c+1];
+      	}
+      	
+      	if(r<(numPointRows-1)){
+			if(maxY > rgPoints1Y[(r+1)*numPointCols+c])
+	 	 		maxY = rgPoints1Y[(r+1)*numPointCols+c];
+	 	 		
+			if((c>0) && (maxY > rgPoints1Y[(r+1)*numPointCols+c-1]))
+	  			maxY = rgPoints1Y[(r+1)*numPointCols+c-1];
+	  			
+			if((c<(numPointCols-1))&&(maxY > rgPoints1Y[(r+1)*numPointCols+c+1]))
+	 	 		maxY = rgPoints1Y[(r+1)*numPointCols+c+1];
+      	}
+      	
+      	if(c>0){
+			if(minX < rgPoints1X[r*numPointCols+c-1])
+	  			minX = rgPoints1X[r*numPointCols+c-1];
+	  			
+			if((r>0)&&(minX < rgPoints1X[(r-1)*numPointCols+c-1]))
+	  			minX = rgPoints1X[(r-1)*numPointCols+c-1];
+	  			
+			if((r<numPointRows-1)&&(minX < rgPoints1X[(r+1)*numPointCols+c-1]))
+	  			minX = rgPoints1X[(r+1)*numPointCols+c-1];
+      	}
+      	
+      	if(c<(numPointCols-1)){
+			if(maxX > rgPoints1X[r*numPointCols+c+1])
+	  			maxX = rgPoints1X[r*numPointCols+c+1];
+	  			
+			if((r>0)&&(maxX > rgPoints1X[(r-1)*numPointCols+c+1]))
+	    			maxX = rgPoints1X[(r-1)*numPointCols+c+1];
+	    			
+			if((r<(numPointRows-1))&&(maxX > rgPoints1X[(r+1)*numPointCols+c+1]))
+	  			maxX = rgPoints1X[(r+1)*numPointCols+c+1];
+      	}
+      	// for(int ty=minY; ty <= maxY; ++ty){
+      	// 	for(int tx=minX; tx <= maxX; ++tx){
+      	for(int ty=minY; ty <= maxY; ++ty){
+			for(int tx=minX; tx <= maxX; ++tx){
+	 		 	double curCost;
+#if NEW_WARP
+	  			curCost = getVertexPositionCostNew(r, c, tx, ty);
+#else
+	  			curCost = getVertexPositionCost(r, c, tx, ty);
+#endif
+
+	  			curCost += sqrt((tx-curControlX)*(tx-curControlX)+(ty-curControlY)*(ty-curControlY))/100.;
+
+	  			if(curCost < bestCost){
+	    				bestCost = curCost;
+	    				bestX = tx;
+	    				bestY = ty;
+	  			}
+			}//for tx
+      	}//for ty
+      	rgPoints1X[r*numPointCols+c] = bestX;
+      	rgPoints1Y[r*numPointCols+c] = bestY;
+    	}
+  }
+  // free(rgTempMA0X);
+  // free(rgTempMA0Y);
+}
+
+
+void DMorphInk::improveMorphOnlyOnNewPoints(){
+  int radiusX, radiusY;
+
+  //try vertex in each valid position within a square about one-third
+  //the mesh spacing (positions are only valid if they don't cause
+  //crossing mesh edges or messed up vertices and they are within
+  //the image boundaries)
+ if (numPointCols%2 ==0 && numPointRows%2==0){
+ 	fprintf(stderr,"Should only have odd number of control points when only using new points.");
+ 	return;
+ }
+
+  radiusX = curColSpacing*.4;
+  radiusY = curRowSpacing*.4;
+  if(radiusX<1)
+    radiusX = 1;
+  if(radiusY<1)
+    radiusY = 1;
+  // printf("improving morph with radiusX=%d radiusY=%d\n",radiusX, radiusY);
+  for(int r=1, idx=1+numPointCols; r < numPointRows; r+=2, idx+=1+numPointCols){
+    	for(int c=1; c < numPointCols; c+=2, idx+=2){
       	double curControlX, curControlY;//current x,y (in img1) of control point
       	double Vcost;//cost at curControlX,curControlY
       	double bestX, bestY;//best (lowest cost) x,y found so far

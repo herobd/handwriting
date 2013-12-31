@@ -82,6 +82,7 @@ public:
 		   double nonDiagonalDPcost = 0.);
   void refineMeshes();
   void improveMorph();
+  void improveMorphOnlyOnNewPoints();
   void improveMorphFast();
   void improveMorphSimAnn();
   		double acceptProbability(double newCost, double oldCost, double temp);
