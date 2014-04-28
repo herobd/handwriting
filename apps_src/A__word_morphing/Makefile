@@ -15,6 +15,9 @@ testsame: ../../bin/test_word_morphing
 testhard: ../../bin/test_word_morphing
 	gdb --args ../../bin/test_word_morphing 1421 774
 
+testdp: ../../bin/test_word_morphing
+	gdb --args ../../bin/test_word_morphing 49 50
+
 clean:
 	@- rm ../../bin/word_morphing
 	@- rm ../../bin/test_word_morphing

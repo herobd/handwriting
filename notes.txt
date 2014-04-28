@@ -158,3 +158,10 @@ Tested on to different words (lonely, alone) to words that are the same (and) an
 My observations:
 The divide and conquer algorithm has trouble when a letter runs up against the border of its image becuase large movement is only allowed in the center. When a control point is finally placed near the edge, it is very restricted. A possible solution is to always center the word in a frame with whitespace on all sides.
 The refiing with all control points has a tendency to flatten letters to make them fit.
+
+======
+28 Apr
+======
+Picked up again, spent a couple hours reviewing and catching up. Started working on making DP warping work indepentantly of control points.
+Why does DP warping seem to use the full image instead of the MA image?
+Trying to write out warped image, then reassign normal control points.

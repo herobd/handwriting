@@ -414,7 +414,7 @@ int main(int argc, char **argv){
 		exit(1);
       	}
       	rgThresholdsTrain[i] =
-			atoi(rgTrainingIimgTestmages[i].getCommentByIndex(0).c_str());
+			atoi(rgTrainingImages[i].getCommentByIndex(0).c_str());
       	rgLabelsTrain[i] = rgTrainingImages[i].getCommentByIndex(1);
     	}
     	DThresholder::threshImage_(rgTrainingImages[i],rgTrainingImages[i],

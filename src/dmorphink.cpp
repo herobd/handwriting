@@ -13,10 +13,11 @@
 #include <signal.h>
 
 #define SUBSAMPLE 1
-#define SAVE_IMAGES 0
+#define SAVE_IMAGES 1
 #define NORMALIZE_VERT_PROF 0
 #define USE_DISTANCE_FROM_DP_COST 0
 #define OUTPUT_DEBUG_FINAL_COST 0
+#define DIVIDE_N_CONQ 1
 
 #define MAXDISTCOLORS 500 /*for heatmaps*/
 
@@ -299,6 +300,67 @@ void DMorphInk::init(const DImage &src0, const DImage &src1, bool fMakeCopies,
 }
 
 
+void DMorph::setUpMAImg0()
+{
+	w0 = pimg0.width();
+	h0 = pimg0.height();
+	DDistanceMap::getDistFromInkBitonal_(imgDist0, *pimg0,1000,-1000);
+	imgMA0 = imgInk0 = DMedialAxis::getMedialAxisImageFromDistMap(imgDist0,true,
+								&lenMA0);
+	imgMA1 = DMedialAxis::getMedialAxisImageFromDistMap(imgDist1,true,&lenMA1);
+	#if SAVE_IMAGES
+	printf("saving /tmp/medial_axis1.pgm\n");
+	imgMA1.save("/tmp/medial_axis1.pgm");
+	printf("saving /tmp/medial_axis0.pgm\n");
+	imgMA0.save("/tmp/medial_axis0.pgm");
+	#endif
+
+
+	//make lists of MA0 pixels
+	rgMA0X = (double*)malloc(sizeof(double)*(1+lenMA0));
+	D_CHECKPTR(rgMA0X);
+	rgMA0Y = (double*)malloc(sizeof(double)*(1+lenMA0));
+	D_CHECKPTR(rgMA0Y);
+	#if NEW_WARP
+	rgMA0r = (int*)malloc(sizeof(double)*(1+lenMA0));
+	D_CHECKPTR(rgMA0r);
+	rgMA0c = (int*)malloc(sizeof(double)*(1+lenMA0));
+	D_CHECKPTR(rgMA0c);
+	rgMA0s = (double*)malloc(sizeof(double)*(1+lenMA0));
+	D_CHECKPTR(rgMA0s);
+	rgMA0t = (double*)malloc(sizeof(double)*(1+lenMA0));
+	D_CHECKPTR(rgMA0t);
+	rgMA0quadW = (double*)malloc(sizeof(double)*(1+lenMA0));
+	D_CHECKPTR(rgMA0quadW);
+	rgMA0quadH = (double*)malloc(sizeof(double)*(1+lenMA0));
+	D_CHECKPTR(rgMA0quadH);
+	rgTempMA0idx = (int*)malloc(sizeof(double)*(1+lenMA0));
+	D_CHECKPTR(rgTempMA0idx);
+	#endif
+
+	rgTempMA0X = (double*)malloc(sizeof(double)*lenMA0);
+	D_CHECKPTR(rgTempMA0X);
+	rgTempMA0Y = (double*)malloc(sizeof(double)*lenMA0);
+	D_CHECKPTR(rgTempMA0Y);
+
+	rgDPMA0X = (double*)malloc(sizeof(double)*(1+lenMA0));
+	D_CHECKPTR(rgDPMA0X);
+	rgDPMA0Y = (double*)malloc(sizeof(double)*(1+lenMA0));
+	D_CHECKPTR(rgDPMA0Y);
+	D_uint8 *p0;
+	p0 = imgMA0.dataPointer_u8();
+	for(int y=0, idx=0, ma_pt=0; y < h0; ++y){
+		for(int x=0; x<w0; ++x, ++idx){
+			if(p0[idx] > 0){
+				rgMA0X[ma_pt] = x;
+				rgMA0Y[ma_pt] = y;
+				++ma_pt;//MedialAxis point
+			}
+		}
+	}
+}
+
+
 //This is essentially the initail alignment of meshes (?)
 ///reset meshes. uses col/row spacing on mesh0, uses DP to align mesh1
 /**The last column and row may be different size than the rest so we
@@ -307,7 +369,7 @@ void DMorphInk::init(const DImage &src0, const DImage &src1, bool fMakeCopies,
    - this assumes that they have been previously set, of course.
    
    POST CONDITION:
-   MA0 and MA1 are aligned to */
+   The control points are now aligned via the DP-warping */
 void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
 			    int bandRadius, double nonDiagonalDPcost) {
   int numPoints;
@@ -320,15 +382,22 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
   if(-1==rowSpacing)
     rowSpacing = initialRowSpacing;
   
-  //brian if(-2==columnSpacing)
-    columnSpacing = w0;
-  //brian if(-2==rowSpacing)
-    rowSpacing = h0;
-    
   
-  // Brian change
-  numMeshPointCols = 2;//1 + (w0+columnSpacing-1)/columnSpacing;
-  numMeshPointRows = 2;//1 + (h0+rowSpacing-1)/rowSpacing;
+  
+  
+  #if DIVIDE_N_CONQ
+	columnSpacing = w0;
+	rowSpacing = h0;
+	numMeshPointCols = 2;
+  	numMeshPointRows = 2;
+  #else
+  	if(-2==columnSpacing)
+	    columnSpacing = w0;
+	if(-2==rowSpacing)
+	    rowSpacing = h0;
+	numMeshPointCols = 1 + (w0+columnSpacing-1)/columnSpacing;
+	numMeshPointRows = 1 + (h0+rowSpacing-1)/rowSpacing;
+  #endif
   
 
   // release memory if already being used
@@ -443,8 +512,22 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
   double *rgXMappings0to1;
   rgXMappings0to1 = (double*)malloc(sizeof(double)*(w0+1));
   D_CHECKPTR(rgXMappings0to1);
-  DDynamicProgramming::getCoord0MappingsToCoord1(w0,w1,rgXMappings0to1,pathLen,
-						 rgPath);
+  DDynamicProgramming::getCoord0MappingsToCoord1(w0,w1,rgXMappings0to1,pathLen,rgPath);
+  #if DIVIDE_N_CONQ
+  {
+	pimg0 = DDynamicProgramming::piecewiseLinearWarpDImage(*pimg0, w1,
+							       pathLen, rgPath,
+							       false);
+	setUpMAImg0();
+#if SAVE_IMAGES
+	{					     			false);
+	  pimg0.save("/tmp/dpwarp.pgm");
+	}
+#endif
+  
+  }
+  #else...
+  //TODO ARRGHH
 #if SAVE_IMAGES
   {
     DImage imgDPwarp;
@@ -698,6 +781,7 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
     }
 #endif
   }
+  
 #if SAVE_IMAGES
   imgStartPoints.save("/tmp/startpoints.pgm");
 #endif
@@ -719,7 +803,7 @@ void DMorphInk::morphOneWay(	const DImage &srcFrom,
 	  	meshSpacing = 4;
 	if(-1 != meshSpacingStatic)
 	 	meshSpacing = meshSpacingStatic;
-	init(srcFrom, srcTo, false, meshSpacing, bandWidthDP,nonDiagonalCostDP);
+	init(srcFrom, srcTo, false, meshSpacing, bandWidthDP,nonDiagonalCostDP);//does this to DP warp?
 	if(fOnlyDoCoarseAlignment){
 	}
 	else{
@@ -736,7 +820,7 @@ void DMorphInk::morphOneWay(	const DImage &srcFrom,
 	   	double last_cost = getCost();
 	   	
 	   	//refineMeshes();
-	   	saveCurrentMorph(0);
+	   saveCurrentMorph(0);
 	  	//for(int ref=0; ref <= numRefinements; ++ref){
 	    	for(int ref=0; ref <= 50; ++ref){//cap at 50
 	    		
@@ -745,23 +829,24 @@ void DMorphInk::morphOneWay(	const DImage &srcFrom,
 	    		//}
 	    		double minor_last_cost = getCost();
 	    		for (int imps = 0; imps <= 50; ++imps){
-	    			improveMorph();
+	    			improveMorphOnlyOnNewPoints();
 	    			if (minor_last_cost <= getCost())// < IMPROVE_COST_DELTA_CUTOFF) TODO:(1b) adjust this
 	    				break;
 	    		}
 	    		
-	    		saveCurrentMorph(2*ref+1);
+	    saveCurrentMorph(2*ref+1);
 	    		double cur_cost = getCost();
 	    		if (last_cost <= cur_cost)// < REFINE_COST_DELTA_CUTOFF) TODO:(1b) adjust this
 	    			break;
 	    		//if(ref < numRefinements){
 			refineMeshes();
 	    		//}
-	    		saveCurrentMorph(2*ref+2);
+	    saveCurrentMorph(2*ref+2);
 	  	}
 	}
 }
 
+//Brian debug method
 void DMorphInk::saveCurrentMorph(int iteration)
 {
 
@@ -1333,7 +1418,8 @@ void DMorphInk::improveMorph(){
   // free(rgTempMA0Y);
 }
 
-
+//Same as above, but only adjusts control points that were just added,
+//or everyother control point, starting at the second
 void DMorphInk::improveMorphOnlyOnNewPoints(){
   int radiusX, radiusY;
 
@@ -1911,7 +1997,6 @@ double DMorphInk::acceptProbability(double newCost, double oldCost, double temp)
 
 
 
-//Note: What does this do?
 //this will increase number of control points by adding them inbetween the
 //current ones (and in the middles). There's a lot of bounds checking that makes
 //it confusing

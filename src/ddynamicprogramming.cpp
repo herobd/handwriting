@@ -150,8 +150,7 @@ double DDynamicProgramming::findDPAlignment(const DFeatureVector &fv1,
 	  double bc;//bandcost
 	  bc = checkBandCost(i,j,Wa,Wb,bandRadius, bandCost);
 	  rgTable[idx] = d + min3double(nonDiagonalCost + rgTable[idx-1]+bc,
-	  				nonDiagonalCost + 
-	  				rgTable[idx-WbPlus1] + bc,
+	  				nonDiagonalCost + rgTable[idx-WbPlus1] + bc,
 	  				rgTable[idx-WbPlus2]+ bc,
 	  				&whichOne);
 	  rgPrev[idx] = whichOne;
