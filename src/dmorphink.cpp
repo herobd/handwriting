@@ -317,36 +317,6 @@ void DMorph::setUpMAImg0()
 
 
 	//make lists of MA0 pixels
-	rgMA0X = (double*)malloc(sizeof(double)*(1+lenMA0));
-	D_CHECKPTR(rgMA0X);
-	rgMA0Y = (double*)malloc(sizeof(double)*(1+lenMA0));
-	D_CHECKPTR(rgMA0Y);
-	#if NEW_WARP
-	rgMA0r = (int*)malloc(sizeof(double)*(1+lenMA0));
-	D_CHECKPTR(rgMA0r);
-	rgMA0c = (int*)malloc(sizeof(double)*(1+lenMA0));
-	D_CHECKPTR(rgMA0c);
-	rgMA0s = (double*)malloc(sizeof(double)*(1+lenMA0));
-	D_CHECKPTR(rgMA0s);
-	rgMA0t = (double*)malloc(sizeof(double)*(1+lenMA0));
-	D_CHECKPTR(rgMA0t);
-	rgMA0quadW = (double*)malloc(sizeof(double)*(1+lenMA0));
-	D_CHECKPTR(rgMA0quadW);
-	rgMA0quadH = (double*)malloc(sizeof(double)*(1+lenMA0));
-	D_CHECKPTR(rgMA0quadH);
-	rgTempMA0idx = (int*)malloc(sizeof(double)*(1+lenMA0));
-	D_CHECKPTR(rgTempMA0idx);
-	#endif
-
-	rgTempMA0X = (double*)malloc(sizeof(double)*lenMA0);
-	D_CHECKPTR(rgTempMA0X);
-	rgTempMA0Y = (double*)malloc(sizeof(double)*lenMA0);
-	D_CHECKPTR(rgTempMA0Y);
-
-	rgDPMA0X = (double*)malloc(sizeof(double)*(1+lenMA0));
-	D_CHECKPTR(rgDPMA0X);
-	rgDPMA0Y = (double*)malloc(sizeof(double)*(1+lenMA0));
-	D_CHECKPTR(rgDPMA0Y);
 	D_uint8 *p0;
 	p0 = imgMA0.dataPointer_u8();
 	for(int y=0, idx=0, ma_pt=0; y < h0; ++y){
@@ -509,10 +479,7 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
   // fprintf(stderr,"done calling debugImages()\n");
   //  printf("horizontal DP cost was %lf\n", dblDPcost);
   warpCostDP = dblDPcost;
-  double *rgXMappings0to1;
-  rgXMappings0to1 = (double*)malloc(sizeof(double)*(w0+1));
-  D_CHECKPTR(rgXMappings0to1);
-  DDynamicProgramming::getCoord0MappingsToCoord1(w0,w1,rgXMappings0to1,pathLen,rgPath);
+  
   #if DIVIDE_N_CONQ
   {
 	pimg0 = DDynamicProgramming::piecewiseLinearWarpDImage(*pimg0, w1,
@@ -521,13 +488,16 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
 	setUpMAImg0();
 #if SAVE_IMAGES
 	{					     			false);
-	  pimg0.save("/tmp/dpwarp.pgm");
+	  pimg0.save("/tmp/dpwarp_horz.pgm");
 	}
 #endif
   
   }
-  #else...
-  //TODO ARRGHH
+  #else
+  double *rgXMappings0to1;
+  rgXMappings0to1 = (double*)malloc(sizeof(double)*(w0+1));
+  D_CHECKPTR(rgXMappings0to1);
+  DDynamicProgramming::getCoord0MappingsToCoord1(w0,w1,rgXMappings0to1,pathLen,rgPath);
 #if SAVE_IMAGES
   {
     DImage imgDPwarp;
@@ -537,6 +507,7 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
     imgDPwarp.save("/tmp/dpwarp.pgm");
   }
 #endif
+  #endif
 
 
   //do DP y-alignment of img0 to img1 to decide how to set warp1 y-coords
@@ -607,7 +578,20 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
   // }
   warpCostDPv = dblDPcostV;
   //  printf("vertical DP cost was %lf\n", dblDPcostV);
+  #if DIVIDE_N_CONQ
+  {
+	pimg0 = DDynamicProgramming::piecewiseLinearWarpDImage(*pimg0, h1,
+							       pathLenV, rgPathV,
+							       true);
+	setUpMAImg0();
+#if SAVE_IMAGES
+	{					     			false);
+	  pimg0.save("/tmp/dpwarp_full.pgm");
+	}
+#endif
   
+  }
+  #else
   double *rgYMappings0to1;
   rgYMappings0to1 = (double*)malloc(sizeof(double)*(h0+1));
   D_CHECKPTR(rgYMappings0to1);
@@ -628,27 +612,29 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
            // rgPointsDPX[idx] = rgPoints1X[idx];
             // rgPointsDPX[idx] = rgPoints0X[idx];
       if(rgPoints1X[idx] >= w1){//in case of bad mapping
-	fprintf(stderr, "DMorphInk::resetMeshes() bad x mapping! changing x from %f to %d(%s:%d) w0=%d w1=%d px=%d py=%d idx=%d\n",
-	 	rgPoints1X[idx],w1-1,__FILE__,__LINE__,w0,w1,px,py,idx);
-	rgPoints1X[idx] = w1-1;
-	exit(1);
+		fprintf(stderr, "DMorphInk::resetMeshes() bad x mapping! changing x from %f to %d(%s:%d) w0=%d w1=%d px=%d py=%d idx=%d\n",
+		 	rgPoints1X[idx],w1-1,__FILE__,__LINE__,w0,w1,px,py,idx);
+		rgPoints1X[idx] = w1-1;
+		exit(1);
       }
       if( (((int)rgPoints0Y[idx]) < 0) ||(((int)rgPoints0Y[idx])>=h0)){
-	fprintf(stderr,"error! (%s:%d) value=%d h0=%d\n",__FILE__,__LINE__,
-		(int)rgPoints0Y[idx],h0);
-	abort();
+		fprintf(stderr,"error! (%s:%d) value=%d h0=%d\n",__FILE__,__LINE__,
+			(int)rgPoints0Y[idx],h0);
+		abort();
       }
       rgPoints1Y[idx] = rgYMappings0to1[(int)rgPoints0Y[idx]];
            // rgPointsDPY[idx] = rgPoints1Y[idx];
             // rgPointsDPY[idx] = rgPoints0Y[idx];
       if(rgPoints1Y[idx] >= h1){//in case of bad mapping
-	rgPoints1Y[idx] = h1-1;
-	fprintf(stderr, "DMorphInk::resetMeshes() bad y mapping! changing y from %f to %d(%s:%d)\n",
-	 	rgPoints1Y[idx],h1-1,__FILE__,__LINE__);
-	exit(1);
+		rgPoints1Y[idx] = h1-1;
+		fprintf(stderr, "DMorphInk::resetMeshes() bad y mapping! changing y from %f to %d(%s:%d)\n",
+		 	rgPoints1Y[idx],h1-1,__FILE__,__LINE__);
+		exit(1);
       }
     }
   }
+  #endif
+//Brian leftoff
 
   //assign the Medial Axis points their corresponding quad indexes
   //assignMA0qidxs();
