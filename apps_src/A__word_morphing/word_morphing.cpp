@@ -86,7 +86,7 @@ void* word_morphing_thread_func(void *params){
   for(int tr=(pparms->threadNum); tr < numTrain; tr+=(pparms->numThreads)){
   	double morphCost=0.;
   	double DPcost=0.;
-
+	
 #if DO_FAST_PASS_FIRST
     	if(pparms->fFastPass)
       	morphCost = mobj.getWordMorphCostFast(*(pparms->pimgTest),
@@ -414,7 +414,7 @@ int main(int argc, char **argv){
 		exit(1);
       	}
       	rgThresholdsTrain[i] =
-			atoi(rgTrainingImages[i].getCommentByIndex(0).c_str());
+			atoi(rgTrainingIimgTestmages[i].getCommentByIndex(0).c_str());
       	rgLabelsTrain[i] = rgTrainingImages[i].getCommentByIndex(1);
     	}
     	DThresholder::threshImage_(rgTrainingImages[i],rgTrainingImages[i],

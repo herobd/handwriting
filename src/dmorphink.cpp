@@ -7,6 +7,8 @@
 #include "dtimer.h"
 #include "dwordfeatures.h"
 #include <string.h>
+#include <queue>
+#include <stdlib.h>
 
 #include <signal.h>
 
@@ -120,6 +122,12 @@ DMorphInk::~DMorphInk(){
   curRowSpacing = 0.;
 }
 
+/*
+What does init do?
+Creates distance map between two images
+Creates MA images
+Calls resetMeshes()
+*/
 void DMorphInk::init(const DImage &src0, const DImage &src1, bool fMakeCopies,
 		     int initialMeshSpacing, int bandRadius,
 		     double nonDiagonalDPcost){
@@ -278,7 +286,6 @@ void DMorphInk::init(const DImage &src0, const DImage &src1, bool fMakeCopies,
   imgMA1.invertGrayscale();
   // imgDist1 = DDistanceMap::getDistFromInkBitonal(imgMA1,1000,-1000);
   DDistanceMap::getDistFromInkBitonal_(imgDist1, imgMA1,1000,-1000);
-  imgMA1.invertGrayscale();
 #if SAVE_IMAGES
   imgMA1.save("/tmp/imgMA1.ppm");
   imgDist1.save("/tmp/imgDist1.ppm");
@@ -288,6 +295,7 @@ void DMorphInk::init(const DImage &src0, const DImage &src1, bool fMakeCopies,
 	      bandRadius,nonDiagonalDPcost);
   // printf("init() has run to just after resetMeshes().  calling exit()\n");
   // exit(1);
+  //saveCurrentMorph(0);
 }
 
 
@@ -296,7 +304,10 @@ void DMorphInk::init(const DImage &src0, const DImage &src1, bool fMakeCopies,
 /**The last column and row may be different size than the rest so we
    can stay on pixel boundaries in mesh0. If -1 is specified, the
    initialColSpacing or initialRowSpacing (respectively) will be used
-   - this assumes that they have been previously set, of course.*/
+   - this assumes that they have been previously set, of course.
+   
+   POST CONDITION:
+   MA0 and MA1 are aligned to */
 void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
 			    int bandRadius, double nonDiagonalDPcost) {
   int numPoints;
@@ -309,15 +320,15 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
   if(-1==rowSpacing)
     rowSpacing = initialRowSpacing;
   
-  if(-2==columnSpacing)
-    columnSpacing = w0;// /2;
-  if(-2==rowSpacing)
-    rowSpacing = h0;// /2;
+  //brian if(-2==columnSpacing)
+    columnSpacing = w0;
+  //brian if(-2==rowSpacing)
+    rowSpacing = h0;
     
-  //TODO We also need to halve this every iteration...
-
-  numMeshPointCols = 1 + (w0+columnSpacing-1)/columnSpacing;
-  numMeshPointRows = 1 + (h0+rowSpacing-1)/rowSpacing;
+  
+  // Brian change
+  numMeshPointCols = 2;//1 + (w0+columnSpacing-1)/columnSpacing;
+  numMeshPointRows = 2;//1 + (h0+rowSpacing-1)/rowSpacing;
   
 
   // release memory if already being used
@@ -332,8 +343,14 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
     free(rgPointsPrevX);
     free(rgPointsPrevY);
   }
+  
   numPoints = numMeshPointCols * numMeshPointRows;
+  numPointRows=numMeshPointRows;
+  numPointCols=numMeshPointCols;
+  
   // printf("A: numPoints=%d\n",numPoints);
+  
+  
   //allocate memory
   rgPoints0X = (double*)malloc(sizeof(double)*numPoints);
   D_CHECKPTR(rgPoints0X);
@@ -361,25 +378,28 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
   //   ma0prevPosX[i] = ma0prevPosY[i] = -999.;
   // }
 
-  numPointRows=numMeshPointRows;
-  numPointCols=numMeshPointCols;
+  
+  
   //set the x,y position of each control point in mesh0
   for(int py=0, idx=0; py < numPointRows; ++py){
     for(int px = 0; px < numPointCols; ++px, ++idx){
       rgPoints0X[idx] = px * columnSpacing;
       if(rgPoints0X[idx] >= w0)//last column may not be as wide
-	rgPoints0X[idx] = w0-1;
+		rgPoints0X[idx] = w0-1;
       rgPoints0Y[idx] = py * rowSpacing;
       if(rgPoints0Y[idx] >= h0)//last row may not be as tall
-	rgPoints0Y[idx] = h0-1;
+		rgPoints0Y[idx] = h0-1;
       // rgPointsDPX[idx] =  rgPoints0X[idx];
       // rgPointsDPY[idx] =  rgPoints0Y[idx];
        rgPointsDPX[idx] =  10*px;
        rgPointsDPY[idx] =  10*py;
     }
   }
+  
+  
   //do DP x-alignment of img0 to img1 to decide how to set warp1 x-coords
   //  fprintf(stderr, "TODO: clean up this code!  variable names confusing,etc!\n");
+  
   DProfile prof1, prof2;
 
   DFeatureVector fv1, fv2;
@@ -558,6 +578,9 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
   free(rgTableV);
   free(rgXMappings0to1);
   free(rgYMappings0to1);
+  
+  
+  
   this->initialColSpacing = columnSpacing;
   this->initialRowSpacing = rowSpacing;
   curColSpacing = initialColSpacing;
@@ -654,6 +677,8 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
   imgStartPoints.create(w1,h1,DImage::DImage_u8);
   imgStartPoints.fill(255);
 #endif
+
+  //What is this doing, the mesh0 hasn't changed has it? why aren't we doing this for mesh1?
   for(int i=0; i < lenMA0; ++i){
     double xp,yp;
      if(warpPoint(rgMA0X[i], rgMA0Y[i], &xp, &yp)){
@@ -688,7 +713,7 @@ void DMorphInk::morphOneWay(	const DImage &srcFrom,
 							int meshSpacingStatic,
 				  			int numRefinementsStatic, 
 				  			double meshDiv) {
-	int numImprovesPerRefinement = 3;
+	int numImprovesPerRefinement = 3;//2.3328103658311496
 	int meshSpacing = (int)(srcFrom.height() / meshDiv);
 	if(meshSpacing < 4)
 	  	meshSpacing = 4;
@@ -699,7 +724,7 @@ void DMorphInk::morphOneWay(	const DImage &srcFrom,
 	}
 	else{
 	  	int numRefinements = 0;
-	  	while(meshSpacing > 16){
+	  	while(meshSpacing > 16){//Why is this 16?
 	    		meshSpacing /=2;
 	    		++numRefinements;
 	  	}
@@ -708,23 +733,91 @@ void DMorphInk::morphOneWay(	const DImage &srcFrom,
 	    		numRefinements = numRefinementsStatic;    
 	   
 	   	//TODO Brian: Make this refined until no improvment found?
-	  	for(int ref=0; ref <= numRefinements; ++ref){
-	   		for(int imp=0; imp < numImprovesPerRefinement; ++imp){
-				improveMorph();
+	   	double last_cost = getCost();
+	   	
+	   	//refineMeshes();
+	   	saveCurrentMorph(0);
+	  	//for(int ref=0; ref <= numRefinements; ++ref){
+	    	for(int ref=0; ref <= 50; ++ref){//cap at 50
+	    		
+	   		//for(int imp=0; imp < numImprovesPerRefinement; ++imp){
+			//	improveMorph();
+	    		//}
+	    		double minor_last_cost = getCost();
+	    		for (int imps = 0; imps <= 50; ++imps){
+	    			improveMorph();
+	    			if (minor_last_cost <= getCost())// < IMPROVE_COST_DELTA_CUTOFF) TODO:(1b) adjust this
+	    				break;
 	    		}
-	    		saveCurrentMorph();
-	    		if(ref < numRefinements){
-				refineMeshes();
-	    		}
+	    		
+	    		saveCurrentMorph(2*ref+1);
+	    		double cur_cost = getCost();
+	    		if (last_cost <= cur_cost)// < REFINE_COST_DELTA_CUTOFF) TODO:(1b) adjust this
+	    			break;
+	    		//if(ref < numRefinements){
+			refineMeshes();
+	    		//}
+	    		saveCurrentMorph(2*ref+2);
 	  	}
 	}
 }
 
-void DMorphInk::saveCurrentMorph()
+void DMorphInk::saveCurrentMorph(int iteration)
 {
-	//do stuff
+
+	//saveCurrentMAImagesAndControlPoints(iteration);
+	DImage both = getBothMedialAxesWithMesh(1,1);
+	std::string filePath ("./tmp/debug_images/both");
+	std::string num = std::to_string(iteration);
+	filePath += num;
+	filePath += ".pgm";
+	both.save(filePath.c_str());
+	/*DImage one = getMedialAxisWithMesh(0);
+	DImage two = getMedialAxisWithMesh(1);
+	std::string filePath ("./tmp/debug_images/one");
+	std::string num = std::to_string(iteration);
+	filePath += num;
+	filePath += ".pgm";
+	one.save(filePath.c_str());
+	
+	std::string filePath2 ("./tmp/debug_images/two");
+	std::string num2 = std::to_string(iteration);
+	filePath2 += num2;
+	filePath2 += ".pgm";
+	two.save(filePath2.c_str());*/
+
 	if (DEBUG_stopAtStep)
 		raise(SIGINT);
+	
+}
+
+
+//Brian debug method
+void DMorphInk::saveCurrentMAImagesAndControlPoints(int id) {
+	DImage allOverlay;
+  	allOverlay.create(w0>w1?w0:w1,h0>h1?h0:h1,DImage::DImage_RGB);
+  	allOverlay.fill(0,0,0);
+	for (int i = 0; i < lenMA0; i++)
+	{
+		allOverlay.drawPixel(rgMA0X[i],rgMA0Y[i],255,0,0);
+	}
+	for (int i = 0; i < lenMA1; i++)
+	{
+		allOverlay.drawPixel(rgMA1X[i],rgMA1Y[i],0,255,0);
+	}
+	for (int r = 0; r < numPointRows; r++) {
+		for (int c = 0; c < numPointCols; c++) {
+			allOverlay.drawPixel(rgPoints0X[c],rgPoints0Y[r],255,0,255);
+			allOverlay.drawPixel(rgPoints1X[c],rgPoints1Y[r],0,255,255);
+		}
+	}
+	std::string filePath ("./tmp/debug_images/overlay");
+	//char* number = "000\0";
+	//itoa(id,number,10);
+	std::string num = std::to_string(id);
+	filePath += num;
+	filePath += ".pgm";
+	allOverlay.save(filePath.c_str());
 }
 
 
@@ -1240,6 +1333,164 @@ void DMorphInk::improveMorph(){
   // free(rgTempMA0Y);
 }
 
+
+void DMorphInk::improveMorphOnlyOnNewPoints(){
+  int radiusX, radiusY;
+
+  //try vertex in each valid position within a square about one-third
+  //the mesh spacing (positions are only valid if they don't cause
+  //crossing mesh edges or messed up vertices and they are within
+  //the image boundaries)
+ if (numPointCols%2 ==0 && numPointRows%2==0){
+ 	fprintf(stderr,"Should only have odd number of control points when only using new points.");
+ 	return;
+ }
+
+  radiusX = curColSpacing*.4;
+  radiusY = curRowSpacing*.4;
+  if(radiusX<1)
+    radiusX = 1;
+  if(radiusY<1)
+    radiusY = 1;
+  // printf("improving morph with radiusX=%d radiusY=%d\n",radiusX, radiusY);
+  for(int r=1, idx=1+numPointCols; r < numPointRows; r+=2, idx+=1+numPointCols){
+    	for(int c=1; c < numPointCols; c+=2, idx+=2){
+      	double curControlX, curControlY;//current x,y (in img1) of control point
+      	double Vcost;//cost at curControlX,curControlY
+      	double bestX, bestY;//best (lowest cost) x,y found so far
+      	double bestCost;//best (lowest) cost
+      	int minY, maxY, minX, maxX;//bounds of search area
+      	curControlX = rgPoints1X[r*numPointCols+c];
+      	curControlY = rgPoints1Y[r*numPointCols+c];
+#if SPEED_TEST
+      	if(!rgPlacePoints0[r*numPointCols+c]){
+			//printf("skipping r=%d c=%d\n",r, c);
+			continue;
+      	}
+#endif 	//SPEED_TEST
+
+      	//decide which MedialAxis0 pixels are within the four quads of this ctl pt
+      	tempMA0len = 0;
+      	// for(int i=0; i < lenMA0; ++i){
+      	for(int i=0; i < lenMA0; i+=SUBSAMPLE){
+			int maRow;
+			int maCol;
+			maCol = (int)(rgMA0X[i] / curColSpacing);
+			maRow = (int)(rgMA0Y[i] / curRowSpacing);
+			//is medial axis point within the four quads this control pt affects?
+			//if((maRow>=(r-1)) && (maRow<=r) && (maCol>=(c-1)) && (maCol<=c)){
+			if(((maRow==(r-1)) || (maRow==r)) && ((maCol==(c-1)) || (maCol==c))){
+#if NEW_WARP
+	  			rgTempMA0idx[tempMA0len] = i;
+#else//also need these if debugging
+	  			rgTempMA0X[tempMA0len] = rgMA0X[i];
+	  			rgTempMA0Y[tempMA0len] = rgMA0Y[i];
+#endif
+	  			++tempMA0len;
+			}
+      	}
+
+
+      	Vcost = bestCost =
+#if NEW_WARP
+		getVertexPositionCostNew(r, c, curControlX, curControlY);
+#else
+		getVertexPositionCost(r, c, curControlX, curControlY);
+#endif
+
+      	bestX = curControlX;
+      	bestY = curControlY;
+
+      	minY = curControlY-radiusY;
+      	// if(minY<0)
+      	// 	minY=0;
+      	maxY = curControlY+radiusY;
+      	// if(maxY>=h1)
+      	// 	maxY=h1-1;
+      	minX = curControlX-radiusX;
+      	// if(minX<0)
+      	// 	minX=0;
+      	maxX = curControlX+radiusX;
+      	// if(maxX>=w1)
+      	// 	maxX=w1-1;
+      		//Constrain the search area with volleyball position rules. (top
+      	//corners must stay above bottom corners, left corners left of
+      	//right corners).  TODO:I might want to see about relaxing this
+      	//so they just can't cross the line between the two constraining
+      	//corners instead of either corner, but then I'd have to do the
+      	//check within the tight loop.  Either way, I can still get
+      	//concave quads, but I don't think quads that cross edges
+      	if(r>0){
+			if(minY < rgPoints1Y[(r-1)*numPointCols+c])
+	  			minY = rgPoints1Y[(r-1)*numPointCols+c];
+	  			
+			if((c>0) && (minY < rgPoints1Y[(r-1)*numPointCols+c-1]))
+	  			minY = rgPoints1Y[(r-1)*numPointCols+c-1];
+	  			
+			if((c<(numPointCols-1))&&(minY < rgPoints1Y[(r-1)*numPointCols+c+1]))
+	  			minY = rgPoints1Y[(r-1)*numPointCols+c+1];
+      	}
+      	
+      	if(r<(numPointRows-1)){
+			if(maxY > rgPoints1Y[(r+1)*numPointCols+c])
+	 	 		maxY = rgPoints1Y[(r+1)*numPointCols+c];
+	 	 		
+			if((c>0) && (maxY > rgPoints1Y[(r+1)*numPointCols+c-1]))
+	  			maxY = rgPoints1Y[(r+1)*numPointCols+c-1];
+	  			
+			if((c<(numPointCols-1))&&(maxY > rgPoints1Y[(r+1)*numPointCols+c+1]))
+	 	 		maxY = rgPoints1Y[(r+1)*numPointCols+c+1];
+      	}
+      	
+      	if(c>0){
+			if(minX < rgPoints1X[r*numPointCols+c-1])
+	  			minX = rgPoints1X[r*numPointCols+c-1];
+	  			
+			if((r>0)&&(minX < rgPoints1X[(r-1)*numPointCols+c-1]))
+	  			minX = rgPoints1X[(r-1)*numPointCols+c-1];
+	  			
+			if((r<numPointRows-1)&&(minX < rgPoints1X[(r+1)*numPointCols+c-1]))
+	  			minX = rgPoints1X[(r+1)*numPointCols+c-1];
+      	}
+      	
+      	if(c<(numPointCols-1)){
+			if(maxX > rgPoints1X[r*numPointCols+c+1])
+	  			maxX = rgPoints1X[r*numPointCols+c+1];
+	  			
+			if((r>0)&&(maxX > rgPoints1X[(r-1)*numPointCols+c+1]))
+	    			maxX = rgPoints1X[(r-1)*numPointCols+c+1];
+	    			
+			if((r<(numPointRows-1))&&(maxX > rgPoints1X[(r+1)*numPointCols+c+1]))
+	  			maxX = rgPoints1X[(r+1)*numPointCols+c+1];
+      	}
+      	// for(int ty=minY; ty <= maxY; ++ty){
+      	// 	for(int tx=minX; tx <= maxX; ++tx){
+      	for(int ty=minY; ty <= maxY; ++ty){
+			for(int tx=minX; tx <= maxX; ++tx){
+	 		 	double curCost;
+#if NEW_WARP
+	  			curCost = getVertexPositionCostNew(r, c, tx, ty);
+#else
+	  			curCost = getVertexPositionCost(r, c, tx, ty);
+#endif
+
+	  			curCost += sqrt((tx-curControlX)*(tx-curControlX)+(ty-curControlY)*(ty-curControlY))/100.;
+
+	  			if(curCost < bestCost){
+	    				bestCost = curCost;
+	    				bestX = tx;
+	    				bestY = ty;
+	  			}
+			}//for tx
+      	}//for ty
+      	rgPoints1X[r*numPointCols+c] = bestX;
+      	rgPoints1Y[r*numPointCols+c] = bestY;
+    	}
+  }
+  // free(rgTempMA0X);
+  // free(rgTempMA0Y);
+}
+
 /**similar to improveMorph except that it doesn't check every
 position's placement cost. it does coarse-to-fine. */
 void DMorphInk::improveMorphFast(){
@@ -1572,7 +1823,7 @@ void DMorphInk::improveMorphSimAnn(){
 	      	}//for ty*/
 		int cur_ann_X = curControlX;
 		int cur_ann_Y = curControlY;
-		double temp = ///
+		double temp = 1;///TODO what should the init be?
 		for (int i = 0; 300 < i; i++) {
 			temp = get_new_temp(i);
 			std::priority_queue<neighbor_point> neighbors;
@@ -1618,11 +1869,11 @@ void DMorphInk::improveMorphSimAnn(){
 			neighbors.push(down);
 			
 			for (int i = 0; i <4; i++) {
-				neighbor_point new_loc = neighbors.pop();
+				neighbor_point new_loc = neighbors.top();
+				neighbors.pop();
 				if (acceptProbability(new_loc.cost, Vcost, temp) > (rand() % 100)/100.0) {
 					cur_ann_X = new_loc.x;
 					cur_ann_Y = new_loc.y;
-					Vcost new_loc.cost;
 				}
 				
 				if (new_loc.cost < bestCost) {
@@ -1641,11 +1892,11 @@ void DMorphInk::improveMorphSimAnn(){
   // free(rgTempMA0Y);
 }
 
-double get_new_temp(int time) {
+double DMorphInk::get_new_temp(int time) {
 	return 301 - time;//TODO this is just made up
 }
 
-double acceptProbability(double newCost, double oldCost, double temp) {
+double DMorphInk::acceptProbability(double newCost, double oldCost, double temp) {
 	if (newCost < oldCost)//geedy, always take best. This might not be ideal
 		return 1;
 	
@@ -1660,7 +1911,10 @@ double acceptProbability(double newCost, double oldCost, double temp) {
 
 
 
-//What does this do?
+//Note: What does this do?
+//this will increase number of control points by adding them inbetween the
+//current ones (and in the middles). There's a lot of bounds checking that makes
+//it confusing
 
 // this version has been modified to only split the last row/col when they are
 // larger than curRowSpacing/curColSpacing and not split in half, but so all
@@ -3308,7 +3562,7 @@ DImage DMorphInk::getMovementHeatmapAtTime(double dblTime,
 	distanceMoved = sqrt((xp - rgDPMA0X[ma_pt])*(xp - rgDPMA0X[ma_pt]) +
 			     (yp - rgDPMA0Y[ma_pt])*(yp - rgDPMA0Y[ma_pt]));
 	distMoved = (int)(distanceMoved*60);
-	if(distMoved > (MAXDISTCOLORS-1))
+	if(distMoved > (MAXDISTCOLORS-1))//Brian: Is this actually getting hit ever?
 	  distMoved = MAXDISTCOLORS-1;
 	if(distMoved < 0)
 	  distMoved = 0;

@@ -58,7 +58,8 @@ public:
 				int meshSpacingStatic,
 				int numRefinementsStatic, 
 				double meshDiv);
-  void saveCurrentMorph();
+  void saveCurrentMorph(int iteration);
+  void saveCurrentMAImagesAndControlPoints(int id);
   double getWordMorphCost(const DImage &src0, const DImage &src1,
 			  int bandWidthDP = 15,
 			  double nonDiagonalCostDP=0.,
@@ -81,7 +82,11 @@ public:
 		   double nonDiagonalDPcost = 0.);
   void refineMeshes();
   void improveMorph();
+  void improveMorphOnlyOnNewPoints();
   void improveMorphFast();
+  void improveMorphSimAnn();
+  		double acceptProbability(double newCost, double oldCost, double temp);
+  		double get_new_temp(int time);
   double getVertexPositionCost(int r, int c, double x1, double y1);
   bool warpPoint(double x, double y, double *xp, double *yp, bool fDebugPrint=false);
 #if NEW_WARP
@@ -380,7 +385,7 @@ inline bool DMorphInk::warpPoint(double x, double y, double *xp, double *yp,bool
     quadW = rgPoints0X[idx+1] - rgPoints0X[idx];
     if(quadW>0.)//changed from >=1. to > 0.(changed after dissertation)
       s = (x - rgPoints0X[idx]) / quadW;
-    else
+    else //Brian: prevents control point cross-over?
       s = 0.;
 // #if CHECK_OLD_WARP
 //     {
