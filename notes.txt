@@ -1,0 +1,160 @@
+clustering
+
+aspect ratio compasion: "it" to "definition" (rectangle)
+cut out obvious non-matched
+Then cut to make convex hull
+cut out again
+
+Focus on accuracy not speed.
+1. Find ways to analyze individual cases, to examine false-positive/false-negatives (focus false-negatives) <--examples
+	Verify against examples in Doug's appendix
+	Find how to draw results and intermediate steps (like Doug has, probably ask him if it isn't obvious)
+It appears that the 1D DP alignment is important in false-negatives (Barrett)
+Cost function:
+How do we optimzed cost (in morphing)?
+doulbe mesh (offset) <--
+
+According to Doug
+Main errors:
+Capitolization
+Single letter
+Similair shape
+...
+Closed loops
+Bad DP alignment
+Me:
+'T's crossed poorly
+
+========
+2 Oct
+========
+Doug: Don't add morph cost. We have to morph to match, so it shouldn't act as penalty.
+Me:But what if we come up with a better way to assign a cost to morph? Perhaps there is a tolerance level that would be allowed?
+Barret:Use a "wrapper" to keep general (DP)alignments more correct
+Me: If you can represent 'shape' well, it would not only imporve aligning, but could preform pre-searching to come up with most likely candidates
+Me:Do two offset meshes
+
+Sederberg:A big thing that needs improvement is the optimizer. How many grid points to nt
+
+In the future an manual override (drop and drop) would be useful for the future: find optimal cost(Barret), run algorithm backwards)
+A debugger essentaily, step through algorithm iterations
+
+Appearently output file stores all the data: all costs for each test to each training
+
+=========
+8 Oct
+=========
+Sent request to Robert for additional code.
+Successfully generated images build into the code.
+Gained better understanding of code structure.
+Main point of confusion:
+The loop at line 738 in dmorphin.cpp appears to be the optimizing loop for morhping, but I don;t know what improveMorph() and refineMeshes() does. It seems the mesh should already be finished by this point.
+Does init() do the mesh alignment? Maybe I'm mistaken.
+
+========
+10 Oct
+========
+Replicated Appendix data. Get the code loaded onto lab computer
+
+=======
+17 Oct
+=======
+TODO: verify test data. It's correct
+
+It doesn't appear that improveMorph() and refineMesh() actually modify the images. Rather they modify arrays of the mesh verticies: rgPoints0X[], rgPoints0Y[],...
+
+
+Improvign the algorithm:
+Optimize morhping (static loop right now). How long should it loop?
+
+While waiting for Robert, add method calls where pritn is desired. (Print out distance map)
+When testing, choose demonstration problem words from disertation, so we know we're fixing the problems he saw.
+
+Moutain range, lay snake on top
+
+Eventually: Represent as vecotr for all degree of freedom. Use princple component analysis.
+
+=======
+21 Oct
+=======
+getVertexPositionCostNew() measures the new cost to check if a certain position of a vertitcy is good. But it calls the warpPointNew() method, which begins using time and I don't know why. It appears to put pixals where they're supposed to be?
+
+improveMorph() seems to locate the best new locations for the vertices and moves them, but doesn't warp the rest of the points?
+
+=======
+24 Oct
+=======
+Current adjustments of the control points is hill-climbing. Try genetic or simulated anealing. Allow bigger radius (crossing).
+Hiearchal morhping to allow big movements. Split by mass. Start with one control point, then add four, and then 16...
+ 
+=======
+4 Nov
+=======
+Need to change refineMeshes()? to split the control points in conjunction with resetMeshes()
+
+=======
+7 Nov
+=======
+Okay, so appearently refineMeshes already doubles the mesh. So I just need to have it loop enough times and start with the right mesh.
+
+getWordMorphCostFast() just change meshDiv?
+
+1.6741326045627374
+1.6811133555133075
+1.6811133555133075
+
+2.3524388070342201
+2.4106166825095054
+2.4106166825095054
+
+2.3241537155302896
+2.3328103658311496
+2.3328103658311496
+
+
+Start with one cp in the center... Need to modify resetMeshes()
+
+Evaluation of method: Look at past performance on specific words
+Future optimization: pyramid processing, start with shrunken image, as morph is interated
+
+======
+14 Nov
+======
+We're going to have to write out images after DP warp and then read back un so we can set there to be one control point.
+We also should track the cost of this DP warp.
+Include morph cost and then look at % of match.
+Also, we need to prune outlier MA points
+
+
+======
+21 Nov
+======
+Key for data structures in project:
+rgMA0X[], rgMA0Y[] are the x and y coordinates of the medial access points for img0
+rgDPMA0X[], rgDPMA0Y[] are the x and y coordinates for DP-warp of img0
+rgPoints0X[], rgPoints0Y[], the control points for img0 in row-major order
+numPointRows, numPointCols is the number of control points for both img0 and img1
+rgXMappings0to1[], the x DP-warp from img0 to img1
+
+morphOneWay() main warp method
+
+======
+30 Dec
+======
+Found pre-made drawing method that draws what I need.
+refineMesh does what I expect.
+
+Trying to make test method to allow good comparison between holding and non-holding method of warping. Currently buggy.
+My thoughts are that all control points shoul always be able to move. Dr. Barrett had wanted only the center point and new points (when they are added) to move.
+
+
+ ./datasets/smith_jhl_vol1_lasso/smith_jhl_vol1_lasso.prj_intermediates/ 0 99 100 199 0.1 1 -1 -1 4.0 14 10 /tmp/smith_results.dat
+======
+31 Dec
+======
+Rough results on divide and conquer testing. The DP warping was not modified, so no DP warping occurred, only the grid warping.
+Two methods tested: First Dr. Barrett's divide and conquer where the image is originally divided into four segments and the mid point is adjusted. Then new mid points are added to each quatrant and those are adjusted, etc. The second is closer to the original refining method, beginning at (9 or 4) control points, all adjusted, midpoints added, all adjusted, etc.
+Tested on to different words (lonely, alone) to words that are the same (and) and two words that are the same which generated a false negative in dissertation (Saturday).
+My observations:
+The divide and conquer algorithm has trouble when a letter runs up against the border of its image becuase large movement is only allowed in the center. When a control point is finally placed near the edge, it is very restricted. A possible solution is to always center the word in a frame with whitespace on all sides.
+The refiing with all control points has a tendency to flatten letters to make them fit.

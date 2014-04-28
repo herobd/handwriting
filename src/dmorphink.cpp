@@ -735,7 +735,7 @@ void DMorphInk::morphOneWay(	const DImage &srcFrom,
 	   	//TODO Brian: Make this refined until no improvment found?
 	   	double last_cost = getCost();
 	   	
-	   	refineMeshes();
+	   	//refineMeshes();
 	   	saveCurrentMorph(0);
 	  	//for(int ref=0; ref <= numRefinements; ++ref){
 	    	for(int ref=0; ref <= 50; ++ref){//cap at 50
@@ -745,7 +745,7 @@ void DMorphInk::morphOneWay(	const DImage &srcFrom,
 	    		//}
 	    		double minor_last_cost = getCost();
 	    		for (int imps = 0; imps <= 50; ++imps){
-	    			improveMorphOnlyOnNewPoints();
+	    			improveMorph();
 	    			if (minor_last_cost <= getCost())// < IMPROVE_COST_DELTA_CUTOFF) TODO:(1b) adjust this
 	    				break;
 	    		}

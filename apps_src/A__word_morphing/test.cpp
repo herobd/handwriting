@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "dmorphink.h"
+#include "dthresholder.h"
 
 int main(int argc, char **argv){
 	if (argc !=3)
@@ -24,6 +25,11 @@ int main(int argc, char **argv){
       	fprintf(stderr,"couldn't load testing image '%s'\n",stTmp);
       	exit(1);
     	}
+    	
+    	int tval = atoi(image0.getCommentByIndex(0).c_str());
+    	DThresholder::threshImage_(image0,image0, tval);
+    	tval = atoi(image1.getCommentByIndex(0).c_str());
+    	DThresholder::threshImage_(image1,image1, tval);
 
 	double morphCost = mobj.getWordMorphCost(image0,
 						image1,
