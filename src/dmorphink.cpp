@@ -21,7 +21,7 @@
 
 #define MAXDISTCOLORS 500 /*for heatmaps*/
 
-int DEBUG_stopAtStep = 1;
+int DEBUG_stopAtStep = 0;
 
 //#define COMPENSATE_FOR_OOB_DISTMAP 1 //we now do this all the time
 
@@ -132,22 +132,6 @@ Calls resetMeshes()
 void DMorphInk::init(const DImage &src0, const DImage &src1, bool fMakeCopies,
 		     int initialMeshSpacing, int bandRadius,
 		     double nonDiagonalDPcost){
-  w0 = src0.width();
-  h0 = src0.height();
-  w1 = src1.width();
-  h1 = src1.height();
-
-
-  if((w0 < 1) || (h0 < 1)){
-    fprintf(stderr, "DMorphInk::init() called with image0 width %d or height %d "
-	    "less than 1\n", w0, h0);
-    abort();
-  }
-  if((w1 < 1) || (h1 < 1)){
-    fprintf(stderr, "DMorphInk::init() called with image0 width %d or height %d "
-	    "less than 1\n", w0, h0);
-    abort();
-  }
 
   if(fMakeCopies){
     img0tmp = src0;
@@ -159,18 +143,37 @@ void DMorphInk::init(const DImage &src0, const DImage &src1, bool fMakeCopies,
     pimg0 = (DImage*)&src0;
     pimg1 = (DImage*)&src1;
   }
+  
+  #if !DIVIDE_N_CONQ
+  setUpMAImg0();
+  #endif
+  w0 = src0.width();
+  h0 = src0.height();
+  w1 = src1.width();
+  h1 = src1.height();
+  
+  if((w0 < 1) || (h0 < 1)){
+    fprintf(stderr, "DMorphInk::init() called with image0 width %d or height %d "
+	    "less than 1\n", w0, h0);
+    abort();
+  }
+  if((w1 < 1) || (h1 < 1)){
+    fprintf(stderr, "DMorphInk::init() called with image0 width %d or height %d "
+	    "less than 1\n", w0, h0);
+    abort();
+  }
 
   //create distance maps for each image
-  // imgDist0 = DDistanceMap::getDistFromInkBitonal(*pimg0,1000,-1000);
-  // imgDist1 = DDistanceMap::getDistFromInkBitonal(*pimg1,1000,-1000);
-  DDistanceMap::getDistFromInkBitonal_(imgDist0, *pimg0,1000,-1000);
+  //DDistanceMap::getDistFromInkBitonal_(imgDist0, *pimg0,1000,-1000);
   DDistanceMap::getDistFromInkBitonal_(imgDist1, *pimg1,1000,-1000);
 #if SAVE_IMAGES
   {
     DImage imgD;
+    #if !DIVIDE_N_CONQ
     imgD = imgDist0.convertedImgType(DImage::DImage_u8);
     printf("saving /tmp/dist0.pgm\n");
     imgD.save("/tmp/dist0.pgm");
+    #endif
     printf("saving /tmp/dist1.pgm\n");
     imgD = imgDist1.convertedImgType(DImage::DImage_u8);
     imgD.save("/tmp/dist1.pgm");
@@ -197,19 +200,19 @@ void DMorphInk::init(const DImage &src0, const DImage &src1, bool fMakeCopies,
     free(rgTempMA0Y);
   }
 
-  imgMA0 = imgInk0 = DMedialAxis::getMedialAxisImageFromDistMap(imgDist0,true,
-								&lenMA0);
+  //imgMA0 = imgInk0 = DMedialAxis::getMedialAxisImageFromDistMap(imgDist0,true,
+  //								&lenMA0);
   imgMA1 = DMedialAxis::getMedialAxisImageFromDistMap(imgDist1,true,&lenMA1);
 #if SAVE_IMAGES
   printf("saving /tmp/medial_axis1.pgm\n");
   imgMA1.save("/tmp/medial_axis1.pgm");
-  printf("saving /tmp/medial_axis0.pgm\n");
-  imgMA0.save("/tmp/medial_axis0.pgm");
+  //printf("saving /tmp/medial_axis0.pgm\n");
+  //imgMA0.save("/tmp/medial_axis0.pgm");
 #endif
 
 
   //make lists of MA0 pixels
-  rgMA0X = (double*)malloc(sizeof(double)*(1+lenMA0));
+  /*rgMA0X = (double*)malloc(sizeof(double)*(1+lenMA0));
   D_CHECKPTR(rgMA0X);
   rgMA0Y = (double*)malloc(sizeof(double)*(1+lenMA0));
   D_CHECKPTR(rgMA0Y);
@@ -238,18 +241,19 @@ void DMorphInk::init(const DImage &src0, const DImage &src1, bool fMakeCopies,
   rgDPMA0X = (double*)malloc(sizeof(double)*(1+lenMA0));
   D_CHECKPTR(rgDPMA0X);
   rgDPMA0Y = (double*)malloc(sizeof(double)*(1+lenMA0));
-  D_CHECKPTR(rgDPMA0Y);
-  D_uint8 *p0;
-  p0 = imgMA0.dataPointer_u8();
-  for(int y=0, idx=0, ma_pt=0; y < h0; ++y){
-    for(int x=0; x<w0; ++x, ++idx){
-      if(p0[idx] > 0){
-	rgMA0X[ma_pt] = x;
-	rgMA0Y[ma_pt] = y;
-	++ma_pt;//MedialAxis point
-      }
-    }
-  }
+  D_CHECKPTR(rgDPMA0Y);*/
+  //D_uint8 *p0;
+  //p0 = imgMA0.dataPointer_u8();
+  //for(int y=0, idx=0, ma_pt=0; y < h0; ++y){
+  //  for(int x=0; x<w0; ++x, ++idx){
+  //    if(p0[idx] > 0){
+	//rgMA0X[ma_pt] = x;
+	//rgMA0Y[ma_pt] = y;
+	//++ma_pt;//MedialAxis point
+      //}
+    //}
+  //}
+  
   //make lists of MA1 pixels
   rgMA1X = (double*)malloc(sizeof(double)*(1+lenMA1));
   D_CHECKPTR(rgMA1X);
@@ -300,23 +304,50 @@ void DMorphInk::init(const DImage &src0, const DImage &src1, bool fMakeCopies,
 }
 
 
-void DMorph::setUpMAImg0()
+void DMorphInk::setUpMAImg0()
 {
-	w0 = pimg0.width();
-	h0 = pimg0.height();
+	w0 = pimg0->width();
+	h0 = pimg0->height();
 	DDistanceMap::getDistFromInkBitonal_(imgDist0, *pimg0,1000,-1000);
 	imgMA0 = imgInk0 = DMedialAxis::getMedialAxisImageFromDistMap(imgDist0,true,
 								&lenMA0);
-	imgMA1 = DMedialAxis::getMedialAxisImageFromDistMap(imgDist1,true,&lenMA1);
 	#if SAVE_IMAGES
-	printf("saving /tmp/medial_axis1.pgm\n");
-	imgMA1.save("/tmp/medial_axis1.pgm");
 	printf("saving /tmp/medial_axis0.pgm\n");
 	imgMA0.save("/tmp/medial_axis0.pgm");
 	#endif
 
 
 	//make lists of MA0 pixels
+	rgMA0X = (double*)malloc(sizeof(double)*(1+lenMA0));
+	D_CHECKPTR(rgMA0X);
+	rgMA0Y = (double*)malloc(sizeof(double)*(1+lenMA0));
+	D_CHECKPTR(rgMA0Y);
+	#if NEW_WARP
+	rgMA0r = (int*)malloc(sizeof(double)*(1+lenMA0));
+	D_CHECKPTR(rgMA0r);
+	rgMA0c = (int*)malloc(sizeof(double)*(1+lenMA0));
+	D_CHECKPTR(rgMA0c);
+	rgMA0s = (double*)malloc(sizeof(double)*(1+lenMA0));
+	D_CHECKPTR(rgMA0s);
+	rgMA0t = (double*)malloc(sizeof(double)*(1+lenMA0));
+	D_CHECKPTR(rgMA0t);
+	rgMA0quadW = (double*)malloc(sizeof(double)*(1+lenMA0));
+	D_CHECKPTR(rgMA0quadW);
+	rgMA0quadH = (double*)malloc(sizeof(double)*(1+lenMA0));
+	D_CHECKPTR(rgMA0quadH);
+	rgTempMA0idx = (int*)malloc(sizeof(double)*(1+lenMA0));
+	D_CHECKPTR(rgTempMA0idx);
+	#endif
+
+	rgTempMA0X = (double*)malloc(sizeof(double)*lenMA0);
+	D_CHECKPTR(rgTempMA0X);
+	rgTempMA0Y = (double*)malloc(sizeof(double)*lenMA0);
+	D_CHECKPTR(rgTempMA0Y);
+
+	rgDPMA0X = (double*)malloc(sizeof(double)*(1+lenMA0));
+	D_CHECKPTR(rgDPMA0X);
+	rgDPMA0Y = (double*)malloc(sizeof(double)*(1+lenMA0));
+	D_CHECKPTR(rgDPMA0Y);
 	D_uint8 *p0;
 	p0 = imgMA0.dataPointer_u8();
 	for(int y=0, idx=0, ma_pt=0; y < h0; ++y){
@@ -342,6 +373,167 @@ void DMorph::setUpMAImg0()
    The control points are now aligned via the DP-warping */
 void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
 			    int bandRadius, double nonDiagonalDPcost) {
+			    
+  //////////Brian moved
+  //do DP x-alignment of img0 to img1 to decide how to set warp1 x-coords
+  //  fprintf(stderr, "TODO: clean up this code!  variable names confusing,etc!\n");
+  
+  DProfile prof1, prof2;
+
+  DFeatureVector fv1, fv2;
+  fv1 = DWordFeatures::extractWordFeatures(*pimg0,true,false,true,true,127);
+  fv2 = DWordFeatures::extractWordFeatures(*pimg1,true,false,true,true,127);
+  double dblDPcost;
+  int pathLen;
+  int *rgPath;
+  int *rgPrev;
+  double *rgTable;
+  rgPath = (int*)malloc(sizeof(int)*(w0+2)*(w1+2));
+  D_CHECKPTR(rgPath);
+  rgPrev = (int*)malloc(sizeof(int)*(w0+2)*(w1+2));
+  D_CHECKPTR(rgPrev);
+  rgTable = (double*)malloc(sizeof(double)*(w0+2)*(w1+2));
+  D_CHECKPTR(rgTable);
+
+  // printf("fv1.vectLen=%d fv2.vectLen=%d\n", fv1.vectLen, fv2.vectLen);
+
+  dblDPcost = DDynamicProgramming::findDPAlignment(fv1, fv2, bandRadius,1000.,
+						   nonDiagonalDPcost, &pathLen,
+						   rgPath, rgPrev, rgTable);
+  // {
+  //   DDynamicProgramming::debugImages(w0,w1,pathLen,rgPath,rgPrev,rgTable);
+  //   // features of w0:
+  //   for(int k=0; k < 4; ++k){
+  //     FILE *ffv;
+  //     char stFFVfile[1024];
+  //     sprintf(stFFVfile,"/tmp/fv1_%d.dat",k);
+  //     ffv = fopen(stFFVfile,"wb");
+  //     if(!ffv){fprintf(stderr,"badd file open!\n");exit(1);}
+  //     for(int x=0; x<w0; ++x){
+  // 	fprintf(ffv,"%d %lf\n",x,fv1.pDbl[x+k*fv1.vectLen]);
+  //     }
+  //     fclose(ffv);
+  //   }
+  // }
+  // fprintf(stderr,"done calling debugImages()\n");
+  //  printf("horizontal DP cost was %lf\n", dblDPcost);
+  warpCostDP = dblDPcost;
+  
+  #if DIVIDE_N_CONQ
+  {
+  	//This shouldn't cause a memory leak. *crosses fingers*
+	img0tmp = DDynamicProgramming::piecewiseLinearWarpDImage(*pimg0, w1,
+							       pathLen, rgPath, false);
+	pimg0 = &img0tmp;		     
+	setUpMAImg0();
+#if SAVE_IMAGES
+	{					    
+	  pimg0->save("/tmp/dpwarp_horz.pgm");
+	}
+#endif
+  
+  }
+  #else
+  double *rgXMappings0to1;
+  rgXMappings0to1 = (double*)malloc(sizeof(double)*(w0+1));
+  D_CHECKPTR(rgXMappings0to1);
+  DDynamicProgramming::getCoord0MappingsToCoord1(w0,w1,rgXMappings0to1,pathLen,rgPath);
+#if SAVE_IMAGES
+  {
+    DImage imgDPwarp;
+    imgDPwarp = DDynamicProgramming::piecewiseLinearWarpDImage(*pimg0, w1,
+							       pathLen, rgPath, false);
+    imgDPwarp.save("/tmp/dpwarp.pgm");
+  }
+#endif
+  #endif
+
+
+  //do DP y-alignment of img0 to img1 to decide how to set warp1 y-coords
+  //The features are built JUST ON THE VERTICAL PROFILE
+  DProfile Vprof1, Vprof2;
+  Vprof1.getImageVerticalProfile(*pimg0);
+  Vprof2.getImageVerticalProfile(*pimg1);
+  double *pVProf1, *pVProf2;
+  pVProf1 = Vprof1.dataPointer();
+  pVProf2 = Vprof2.dataPointer();
+
+#if NORMALIZE_VERT_PROF
+  {
+    double max1=0., max2=0.;
+    for(int i=0, len=Vprof1.dataLen(); i < len; ++i){
+      if(pVProf1[i] > max1)
+	max1 = pVProf1[i];
+    }
+    if(max1 != 0.){
+      for(int i=0, len=Vprof1.dataLen(); i < len; ++i){
+	pVProf1[i] /= max1;
+      }
+    }
+
+    for(int i=0, len=Vprof2.dataLen(); i < len; ++i){
+      if(pVProf2[i] > max1)
+	max2 = pVProf2[i];
+    }
+    if(max2 != 0.){
+      for(int i=0, len=Vprof2.dataLen(); i < len; ++i){
+	pVProf2[i] /= max2;
+      }
+    }
+
+  }
+
+#endif
+
+  DFeatureVector Vfv1, Vfv2;
+  Vfv1.setData_dbl(pVProf1, h0, 1, true, true, true);
+  Vfv2.setData_dbl(pVProf2, h1, 1, true, true, true);
+  double dblDPcostV;
+  int pathLenV;
+  int *rgPathV;
+  int *rgPrevV;
+  double *rgTableV;
+  rgPathV = (int*)malloc(sizeof(int)*(h0+2)*(h1+2));
+  rgPrevV = (int*)malloc(sizeof(int)*(h0+2)*(h1+2));
+  rgTableV = (double*)malloc(sizeof(double)*(h0+2)*(h1+2));
+  dblDPcostV = DDynamicProgramming::findDPAlignment(Vfv1, Vfv2,
+						    bandRadius*2/3+1, 1000.,
+						    nonDiagonalDPcost,&pathLenV,
+						    rgPathV, rgPrevV, rgTableV);
+  // {
+  //   DDynamicProgramming::debugImages(w0,w1,pathLen,rgPath,rgPrev,rgTable);
+  //   // features of w0:
+  //   for(int k=0; k < 1; ++k){
+  //     FILE *ffv;
+  //     char stFFVfile[1024];
+  //     sprintf(stFFVfile,"/tmp/Vfv1_%d.dat",k);
+  //     ffv = fopen(stFFVfile,"wb");
+  //     if(!ffv){fprintf(stderr,"badd file open!\n");exit(1);}
+  //     for(int x=0; x<h0; ++x){
+  // 	fprintf(ffv,"%d %lf\n",x,Vfv1.pDbl[x+k*fv1.vectLen]);
+  //     }
+  //     fclose(ffv);
+  //   }
+  // }
+  warpCostDPv = dblDPcostV;
+  //  printf("vertical DP cost was %lf\n", dblDPcostV);
+  #if DIVIDE_N_CONQ
+  {
+	img0tmp = DDynamicProgramming::piecewiseLinearWarpDImage(*pimg0, h1,
+							       pathLenV, rgPathV, true);
+	pimg0 = &img0tmp;
+	setUpMAImg0();
+#if SAVE_IMAGES
+	{					    
+	  pimg0->save("/tmp/dpwarp_full.pgm");
+	}
+#endif
+  
+  }
+  #endif
+  //////////////
+			    
+			    
   int numPoints;
   //int lastColW;
   int numMeshPointCols;
@@ -436,162 +628,9 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
   }
   
   
-  //do DP x-alignment of img0 to img1 to decide how to set warp1 x-coords
-  //  fprintf(stderr, "TODO: clean up this code!  variable names confusing,etc!\n");
+  ////Brian moved from
   
-  DProfile prof1, prof2;
-
-  DFeatureVector fv1, fv2;
-  fv1 = DWordFeatures::extractWordFeatures(*pimg0,true,false,true,true,127);
-  fv2 = DWordFeatures::extractWordFeatures(*pimg1,true,false,true,true,127);
-  double dblDPcost;
-  int pathLen;
-  int *rgPath;
-  int *rgPrev;
-  double *rgTable;
-  rgPath = (int*)malloc(sizeof(int)*(w0+2)*(w1+2));
-  D_CHECKPTR(rgPath);
-  rgPrev = (int*)malloc(sizeof(int)*(w0+2)*(w1+2));
-  D_CHECKPTR(rgPrev);
-  rgTable = (double*)malloc(sizeof(double)*(w0+2)*(w1+2));
-  D_CHECKPTR(rgTable);
-
-  // printf("fv1.vectLen=%d fv2.vectLen=%d\n", fv1.vectLen, fv2.vectLen);
-
-  dblDPcost = DDynamicProgramming::findDPAlignment(fv1, fv2, bandRadius,1000.,
-						   nonDiagonalDPcost, &pathLen,
-						   rgPath, rgPrev, rgTable);
-  // {
-  //   DDynamicProgramming::debugImages(w0,w1,pathLen,rgPath,rgPrev,rgTable);
-  //   // features of w0:
-  //   for(int k=0; k < 4; ++k){
-  //     FILE *ffv;
-  //     char stFFVfile[1024];
-  //     sprintf(stFFVfile,"/tmp/fv1_%d.dat",k);
-  //     ffv = fopen(stFFVfile,"wb");
-  //     if(!ffv){fprintf(stderr,"badd file open!\n");exit(1);}
-  //     for(int x=0; x<w0; ++x){
-  // 	fprintf(ffv,"%d %lf\n",x,fv1.pDbl[x+k*fv1.vectLen]);
-  //     }
-  //     fclose(ffv);
-  //   }
-  // }
-  // fprintf(stderr,"done calling debugImages()\n");
-  //  printf("horizontal DP cost was %lf\n", dblDPcost);
-  warpCostDP = dblDPcost;
-  
-  #if DIVIDE_N_CONQ
-  {
-	pimg0 = DDynamicProgramming::piecewiseLinearWarpDImage(*pimg0, w1,
-							       pathLen, rgPath,
-							       false);
-	setUpMAImg0();
-#if SAVE_IMAGES
-	{					     			false);
-	  pimg0.save("/tmp/dpwarp_horz.pgm");
-	}
-#endif
-  
-  }
-  #else
-  double *rgXMappings0to1;
-  rgXMappings0to1 = (double*)malloc(sizeof(double)*(w0+1));
-  D_CHECKPTR(rgXMappings0to1);
-  DDynamicProgramming::getCoord0MappingsToCoord1(w0,w1,rgXMappings0to1,pathLen,rgPath);
-#if SAVE_IMAGES
-  {
-    DImage imgDPwarp;
-    imgDPwarp = DDynamicProgramming::piecewiseLinearWarpDImage(*pimg0, w1,
-							       pathLen, rgPath,
-							       false);
-    imgDPwarp.save("/tmp/dpwarp.pgm");
-  }
-#endif
-  #endif
-
-
-  //do DP y-alignment of img0 to img1 to decide how to set warp1 y-coords
-  //The features are built JUST ON THE VERTICAL PROFILE
-  DProfile Vprof1, Vprof2;
-  Vprof1.getImageVerticalProfile(*pimg0);
-  Vprof2.getImageVerticalProfile(*pimg1);
-  double *pVProf1, *pVProf2;
-  pVProf1 = Vprof1.dataPointer();
-  pVProf2 = Vprof2.dataPointer();
-
-#if NORMALIZE_VERT_PROF
-  {
-    double max1=0., max2=0.;
-    for(int i=0, len=Vprof1.dataLen(); i < len; ++i){
-      if(pVProf1[i] > max1)
-	max1 = pVProf1[i];
-    }
-    if(max1 != 0.){
-      for(int i=0, len=Vprof1.dataLen(); i < len; ++i){
-	pVProf1[i] /= max1;
-      }
-    }
-
-    for(int i=0, len=Vprof2.dataLen(); i < len; ++i){
-      if(pVProf2[i] > max1)
-	max2 = pVProf2[i];
-    }
-    if(max2 != 0.){
-      for(int i=0, len=Vprof2.dataLen(); i < len; ++i){
-	pVProf2[i] /= max2;
-      }
-    }
-
-  }
-
-#endif
-
-  DFeatureVector Vfv1, Vfv2;
-  Vfv1.setData_dbl(pVProf1, h0, 1, true, true, true);
-  Vfv2.setData_dbl(pVProf2, h1, 1, true, true, true);
-  double dblDPcostV;
-  int pathLenV;
-  int *rgPathV;
-  int *rgPrevV;
-  double *rgTableV;
-  rgPathV = (int*)malloc(sizeof(int)*(h0+2)*(h1+2));
-  rgPrevV = (int*)malloc(sizeof(int)*(h0+2)*(h1+2));
-  rgTableV = (double*)malloc(sizeof(double)*(h0+2)*(h1+2));
-  dblDPcostV = DDynamicProgramming::findDPAlignment(Vfv1, Vfv2,
-						    bandRadius*2/3+1, 1000.,
-						    nonDiagonalDPcost,&pathLenV,
-						    rgPathV, rgPrevV, rgTableV);
-  // {
-  //   DDynamicProgramming::debugImages(w0,w1,pathLen,rgPath,rgPrev,rgTable);
-  //   // features of w0:
-  //   for(int k=0; k < 1; ++k){
-  //     FILE *ffv;
-  //     char stFFVfile[1024];
-  //     sprintf(stFFVfile,"/tmp/Vfv1_%d.dat",k);
-  //     ffv = fopen(stFFVfile,"wb");
-  //     if(!ffv){fprintf(stderr,"badd file open!\n");exit(1);}
-  //     for(int x=0; x<h0; ++x){
-  // 	fprintf(ffv,"%d %lf\n",x,Vfv1.pDbl[x+k*fv1.vectLen]);
-  //     }
-  //     fclose(ffv);
-  //   }
-  // }
-  warpCostDPv = dblDPcostV;
-  //  printf("vertical DP cost was %lf\n", dblDPcostV);
-  #if DIVIDE_N_CONQ
-  {
-	pimg0 = DDynamicProgramming::piecewiseLinearWarpDImage(*pimg0, h1,
-							       pathLenV, rgPathV,
-							       true);
-	setUpMAImg0();
-#if SAVE_IMAGES
-	{					     			false);
-	  pimg0.save("/tmp/dpwarp_full.pgm");
-	}
-#endif
-  
-  }
-  #else
+  #if ! DIVIDE_N_CONQ
   double *rgYMappings0to1;
   rgYMappings0to1 = (double*)malloc(sizeof(double)*(h0+1));
   D_CHECKPTR(rgYMappings0to1);
@@ -634,7 +673,7 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
     }
   }
   #endif
-//Brian leftoff
+
 
   //assign the Medial Axis points their corresponding quad indexes
   //assignMA0qidxs();
@@ -645,9 +684,10 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
   free(rgPathV);
   free(rgPrevV);
   free(rgTableV);
+  #if !DIVIDE_N_CONQ
   free(rgXMappings0to1);
   free(rgYMappings0to1);
-  
+  #endif
   
   
   this->initialColSpacing = columnSpacing;
@@ -656,6 +696,7 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
   curRowSpacing = initialRowSpacing;
   meshLevel = 0;
 
+//I have no idea what this section does
 #if SPEED_TEST
   for(int i=0; i < numPointCols*numPointRows; ++i)
     rgPlacePoints0[i]=false;
@@ -747,7 +788,7 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
   imgStartPoints.fill(255);
 #endif
 
-  //What is this doing, the mesh0 hasn't changed has it? why aren't we doing this for mesh1?
+  //What is this doing? rgDPMA0X/Y are only used for heat mapping things
   for(int i=0; i < lenMA0; ++i){
     double xp,yp;
      if(warpPoint(rgMA0X[i], rgMA0Y[i], &xp, &yp)){

@@ -165,4 +165,10 @@ The refiing with all control points has a tendency to flatten letters to make th
 Picked up again, spent a couple hours reviewing and catching up. Started working on making DP warping work indepentantly of control points.
 Why does DP warping use the full image instead of the MA image?
 Trying to write out warped image, then reassign normal control points. I do it in two stages, x then y. Probably not the most efficent, but easy. Untested, unfinished actually. I need to finish going through the whole resetMesh method. Also, I need to be sure I minimize and repercusions.
-//Brian leftoff
+
+
+======
+29 Apr
+======
+Finished DP code. Verticle write isn't working. Fixed.
+Because I am warping on the full pixeled image, we end up with streching and compacting that makes blocks of pixels. This is problematic when we find the MA image, as we get spines as a reult of the boxes.

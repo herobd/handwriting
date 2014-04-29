@@ -48,6 +48,9 @@
 
 
 class DMorphInk{
+private:
+  void setUpMAImg0();
+  
 public:
   DMorphInk();
   ~DMorphInk();
@@ -78,6 +81,7 @@ public:
   void init(const DImage &src0, const DImage &src1, bool fMakeCopies = true,
 	    int initialMeshSpacing=50, int bandRadius=15,
 	    double nonDiagonalDPcost = 0.);
+	    
   void resetMeshes(int columnSpacing, int rowSpacing,int bandRadius=15,
 		   double nonDiagonalDPcost = 0.);
   void refineMeshes();

@@ -440,18 +440,18 @@ DImage DDynamicProgramming::piecewiseLinearWarpDImage(DImage &img1,
 		for(int i=0; i < pathLen; ++i){
 			if(0 == rgPath[i]){
 			  for(int x = 0; x < w; ++x){
-			    p8dst[3*(y2*warpToLength+x)] = p8src[3*(y1*w+x)];
-			    p8dst[3*(y2*warpToLength+x)+1] = p8src[3*(y1*w+x)+1];
-			    p8dst[3*(y2*warpToLength+x)+2] = p8src[3*(y1*w+x)+2];
+			    p8dst[3*(y2*w+x)] = p8src[3*(y1*w+x)];
+			    p8dst[3*(y2*w+x)+1] = p8src[3*(y1*w+x)+1];
+			    p8dst[3*(y2*w+x)+2] = p8src[3*(y1*w+x)+2];
 			  }
 			  ++y1;
 			  ++y2;
 			}
 			else if(1 == rgPath[i]){//east (stretch)
 			  for(int x = 0; x < w; ++x){
-			    p8dst[3*(y2*warpToLength+x)] = p8src[3*(y1*w+x)];
-			    p8dst[3*(y2*warpToLength+x)+1] = p8src[3*(y1*w+x)+1];
-			    p8dst[3*(y2*warpToLength+x)+2] = p8src[3*(y1*w+x)+2];
+			    p8dst[3*(y2*w+x)] = p8src[3*(y1*w+x)];
+			    p8dst[3*(y2*w+x)+1] = p8src[3*(y1*w+x)+1];
+			    p8dst[3*(y2*w+x)+2] = p8src[3*(y1*w+x)+2];
 			  }
 			  ++y2;
 			}
@@ -460,14 +460,14 @@ DImage DDynamicProgramming::piecewiseLinearWarpDImage(DImage &img1,
 			    float H1, H2, S1, S2, V1, V2;
 			    DColorSpace::getHSVFromRGB(p8src[3*(y1*w+x)],p8src[3*(y1*w+x)+1],
 							 p8src[3*(y1*w+x)+2], &H1, &S1, &V1);
-			    DColorSpace::getHSVFromRGB(p8dst[3*(y2*warpToLength+x)],
-							 p8dst[3*(y2*warpToLength+x)+1],
-							 p8dst[3*(y2*warpToLength+x)+2],
+			    DColorSpace::getHSVFromRGB(p8dst[3*(y2*w+x)],
+							 p8dst[3*(y2*w+x)+1],
+							 p8dst[3*(y2*w+x)+2],
 							 &H2, &S2, &V2);
 			    if(V1 < V2){//use the darker of the color already there vs. new one
-				p8dst[3*(y2*warpToLength+x)] = p8src[3*(y1*w+x)];
-				p8dst[3*(y2*warpToLength+x)+1] = p8src[3*(y1*w+x)+1];
-				p8dst[3*(y2*warpToLength+x)+2] = p8src[3*(y1*w+x)+2];
+				p8dst[3*(y2*w+x)] = p8src[3*(y1*w+x)];
+				p8dst[3*(y2*w+x)+1] = p8src[3*(y1*w+x)+1];
+				p8dst[3*(y2*w+x)+2] = p8src[3*(y1*w+x)+2];
 			    }
 			  }
 			  ++y1;
@@ -483,22 +483,22 @@ DImage DDynamicProgramming::piecewiseLinearWarpDImage(DImage &img1,
 		for(int i=0; i < pathLen; ++i){
 			if(0 == rgPath[i]){
 			  for(int x = 0; x < w; ++x){
-			    p8dst[y2*warpToLength+x] = p8src[y1*w+x];
+			    p8dst[y2*w+x] = p8src[y1*w+x];
 			  }
 			  ++y1;
 			  ++y2;
 			}
 			else if(1 == rgPath[i]){//east (stretch)
 			  for(int x = 0; x < w; ++x){
-			    p8dst[y2*warpToLength+x] = p8src[y1*w+x];
+			    p8dst[y2*w+x] = p8src[y1*w+x];
 			  }
 			  ++y2;
 			}
 			else if(2 == rgPath[i]){//south (squish!)
 			  for(int x = 0; x < w; ++x){
 			    //use the darker of the color already there vs. new one
-			    if(p8src[y1*w+x] < p8dst[y2*warpToLength+x]){
-				p8dst[y2*warpToLength+x] = p8src[y1*w+x];
+			    if(p8src[y1*w+x] < p8dst[y2*w+x]){
+				p8dst[y2*w+x] = p8src[y1*w+x];
 			    }
 			  }
 			  ++y1;
@@ -508,7 +508,7 @@ DImage DDynamicProgramming::piecewiseLinearWarpDImage(DImage &img1,
 			  exit(1);
 			}
 		}//for i
-	}//else\
+	}//else
   }
   return imgWarp;
 }
