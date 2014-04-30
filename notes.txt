@@ -171,4 +171,5 @@ Trying to write out warped image, then reassign normal control points. I do it i
 29 Apr
 ======
 Finished DP code. Verticle write isn't working. Fixed.
-Because I am warping on the full pixeled image, we end up with streching and compacting that makes blocks of pixels. This is problematic when we find the MA image, as we get spines as a reult of the boxes.
+Because I am warping on the full pixeled image, we end up with streching and compacting that makes blocks of pixels. This is problematic when we find the MA image, as we get spines as a reult of the boxes. Warping the MA image causes weird things to happen.
+Ehh, how many control points do I start with? 1 is giving me curroption errors.

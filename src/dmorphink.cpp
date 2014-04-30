@@ -373,7 +373,20 @@ void DMorphInk::setUpMAImg0()
    The control points are now aligned via the DP-warping */
 void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
 			    int bandRadius, double nonDiagonalDPcost) {
-			    
+		
+  // release memory if already being used
+  if(numPointRows>0){ls rob	
+    free(rgPoints0X);
+    free(rgPoints0Y);
+    free(rgPlacePoints0);
+    free(rgPoints1X);
+    free(rgPoints1Y);
+    free(rgPointsDPX);
+    free(rgPointsDPY);
+    free(rgPointsPrevX);
+    free(rgPointsPrevY);
+  }
+  	    
   //////////Brian moved
   //do DP x-alignment of img0 to img1 to decide how to set warp1 x-coords
   //  fprintf(stderr, "TODO: clean up this code!  variable names confusing,etc!\n");
@@ -550,8 +563,8 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
   #if DIVIDE_N_CONQ
 	columnSpacing = w0;
 	rowSpacing = h0;
-	numMeshPointCols = 2;
-  	numMeshPointRows = 2;
+	numMeshPointCols = 1;
+  	numMeshPointRows = 1;
   #else
   	if(-2==columnSpacing)
 	    columnSpacing = w0;
@@ -562,18 +575,7 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
   #endif
   
 
-  // release memory if already being used
-  if(numPointRows>0){
-    free(rgPoints0X);
-    free(rgPoints0Y);
-    free(rgPlacePoints0);
-    free(rgPoints1X);
-    free(rgPoints1Y);
-    free(rgPointsDPX);
-    free(rgPointsDPY);
-    free(rgPointsPrevX);
-    free(rgPointsPrevY);
-  }
+  
   
   numPoints = numMeshPointCols * numMeshPointRows;
   numPointRows=numMeshPointRows;
@@ -630,7 +632,7 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
   
   ////Brian moved from
   
-  #if ! DIVIDE_N_CONQ
+  #if !DIVIDE_N_CONQ
   double *rgYMappings0to1;
   rgYMappings0to1 = (double*)malloc(sizeof(double)*(h0+1));
   D_CHECKPTR(rgYMappings0to1);
@@ -791,7 +793,11 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
   //What is this doing? rgDPMA0X/Y are only used for heat mapping things
   for(int i=0; i < lenMA0; ++i){
     double xp,yp;
-     if(warpPoint(rgMA0X[i], rgMA0Y[i], &xp, &yp)){
+    #if DIVIDE_N_CONQ
+    rgDPMA0X[i] = xp = rgMA0X[i];
+    rgDPMA0Y[i] = yp = rgMA0Y[i];
+    #else
+    if(warpPoint(rgMA0X[i], rgMA0Y[i], &xp, &yp)){
        // if(warpPoint(rgMA0X[i], rgMA0Y[i], &xp, &yp)||true){
       rgDPMA0X[i] = xp;
       rgDPMA0Y[i] = yp;
@@ -802,6 +808,7 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
     //   rgDPMA0X[i] = 0.;
     //   rgDPMA0Y[i] = 0.;
      }
+     #endif
 #if SAVE_IMAGES
     if((xp>=0.) && (yp>=0.) && (xp<w1) &&(yp<h1)){
       imgStartPoints.drawPixel((int)xp,(int)yp,0);
@@ -1455,7 +1462,7 @@ void DMorphInk::improveMorphOnlyOnNewPoints(){
   //crossing mesh edges or messed up vertices and they are within
   //the image boundaries)
  if (numPointCols%2 ==0 && numPointRows%2==0){
- 	fprintf(stderr,"Should only have odd number of control points when only using new points.");
+ 	fprintf(stderr,"Should only have odd number of control points when only using new points. You have (%d,%d).",numPointCols,numPointRows);
  	return;
  }
 
