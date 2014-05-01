@@ -17,7 +17,8 @@
 #define NORMALIZE_VERT_PROF 0
 #define USE_DISTANCE_FROM_DP_COST 0
 #define OUTPUT_DEBUG_FINAL_COST 0
-#define DIVIDE_N_CONQ 1
+#define DIVIDE_N_CONQ 0
+#define REFINE_COST_DELTA_CUTOFF .01
 
 #define MAXDISTCOLORS 500 /*for heatmaps*/
 
@@ -375,7 +376,7 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
 			    int bandRadius, double nonDiagonalDPcost) {
 		
   // release memory if already being used
-  if(numPointRows>0){ls rob	
+  if(numPointRows>0){
     free(rgPoints0X);
     free(rgPoints0Y);
     free(rgPlacePoints0);
@@ -563,8 +564,8 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
   #if DIVIDE_N_CONQ
 	columnSpacing = w0;
 	rowSpacing = h0;
-	numMeshPointCols = 1;
-  	numMeshPointRows = 1;
+	numMeshPointCols = 2;
+  	numMeshPointRows = 2;
   #else
   	if(-2==columnSpacing)
 	    columnSpacing = w0;
@@ -632,7 +633,15 @@ void DMorphInk::resetMeshes(int columnSpacing, int rowSpacing,
   
   ////Brian moved from
   
-  #if !DIVIDE_N_CONQ
+  #if DIVIDE_N_CONQ
+  //Use the same control points, as we have already warped
+  for(int py=0, idx=0; py < numPointRows; ++py){
+    for(int px = 0; px < numPointCols; ++px, ++idx){
+      rgPoints1X[idx] = rgPoints0X[idx];
+      rgPoints1Y[idx] = rgPoints0Y[idx];
+    }
+  }
+  #else
   double *rgYMappings0to1;
   rgYMappings0to1 = (double*)malloc(sizeof(double)*(h0+1));
   D_CHECKPTR(rgYMappings0to1);
@@ -853,7 +862,9 @@ void DMorphInk::morphOneWay(	const DImage &srcFrom,
 	   	//TODO Brian: Make this refined until no improvment found?
 	   	double last_cost = getCost();
 	   	
-	   	//refineMeshes();
+	   	#if DIVIDE_N_CONQ
+	   	refineMeshes();
+	   	#endif
 	   saveCurrentMorph(0);
 	  	//for(int ref=0; ref <= numRefinements; ++ref){
 	    	for(int ref=0; ref <= 50; ++ref){//cap at 50
@@ -863,15 +874,21 @@ void DMorphInk::morphOneWay(	const DImage &srcFrom,
 	    		//}
 	    		double minor_last_cost = getCost();
 	    		for (int imps = 0; imps <= 50; ++imps){
+	    			#if DIVIDE_N_CONQ
 	    			improveMorphOnlyOnNewPoints();
+	    			#else
+	    			improveMorph();
+	    			#endif
 	    			if (minor_last_cost <= getCost())// < IMPROVE_COST_DELTA_CUTOFF) TODO:(1b) adjust this
 	    				break;
 	    		}
 	    		
 	    saveCurrentMorph(2*ref+1);
 	    		double cur_cost = getCost();
-	    		if (last_cost <= cur_cost)// < REFINE_COST_DELTA_CUTOFF) TODO:(1b) adjust this
+	    		printf("Testing cost dif: %f\n",last_cost - cur_cost);
+	    		if (last_cost - cur_cost < REFINE_COST_DELTA_CUTOFF) //TODO:(1b) adjust this
 	    			break;
+	    		last_cost=cur_cost;
 	    		//if(ref < numRefinements){
 			refineMeshes();
 	    		//}

@@ -173,3 +173,8 @@ Trying to write out warped image, then reassign normal control points. I do it i
 Finished DP code. Verticle write isn't working. Fixed.
 Because I am warping on the full pixeled image, we end up with streching and compacting that makes blocks of pixels. This is problematic when we find the MA image, as we get spines as a reult of the boxes. Warping the MA image causes weird things to happen.
 Ehh, how many control points do I start with? 1 is giving me curroption errors.
+
+======
+1 May
+======
+It looks like the divide and conquer with DP is operational, but I've broken other things in the process which I want to fix to compare results. I had forgetten that for DnC I need to start with the basic box control points but call a refineMesh() before starting.
