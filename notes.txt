@@ -178,3 +178,10 @@ Ehh, how many control points do I start with? 1 is giving me curroption errors.
 1 May
 ======
 It looks like the divide and conquer with DP is operational, but I've broken other things in the process which I want to fix to compare results. I had forgetten that for DnC I need to start with the basic box control points but call a refineMesh() before starting.
+
+=====
+7 May
+=====
+Owning to the need to use the findmorphfast thing, I had to change the preprocessor ifs controling the divide and conquer to normal if statements so we can run init() and resetMesh() both ways.
+./datasets/smith_jhl_vol1_lasso/smith_jhl_vol1_lasso.prj_intermediates/ 0 99 100 199 0.1 1 -1 -1 4.0 14 10 ./tmp/smith_results_DnC.dat
+

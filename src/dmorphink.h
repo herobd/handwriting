@@ -12,6 +12,7 @@
 
 
 #define DEBUG_WARP_POINT 0
+#define DIVIDE_N_CONQ 1
 
 #define NEW_WARP 1 /*attempt at faster warpPoint function & re-tooling for it*/
 
@@ -80,10 +81,10 @@ public:
 
   void init(const DImage &src0, const DImage &src1, bool fMakeCopies = true,
 	    int initialMeshSpacing=50, int bandRadius=15,
-	    double nonDiagonalDPcost = 0.);
+	    double nonDiagonalDPcost = 0.,bool D_N_C=DIVIDE_N_CONQ);
 	    
   void resetMeshes(int columnSpacing, int rowSpacing,int bandRadius=15,
-		   double nonDiagonalDPcost = 0.);
+		   double nonDiagonalDPcost = 0.,bool D_N_C=DIVIDE_N_CONQ);
   void refineMeshes();
   void improveMorph();
   void improveMorphOnlyOnNewPoints();
@@ -207,6 +208,8 @@ public:
   int lenMA1;//number of MA1 (medial axis 1) points
   DImage *pimg0,*pimg1;//pointers to the source images (or copies if applicable)
   DImage img0tmp, img1tmp;//if images are copied by init(), point to these
+  //for Divide and Conq
+  DImage img0tmpDP;
   DImage imgDist0, imgDist1;//distance maps (DImage_u32) for each image
   DImage imgMA0, imgMA1;//medialAxis images
   DImage imgInk0;//medial axis (or all ink) in image0

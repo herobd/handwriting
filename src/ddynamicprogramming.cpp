@@ -398,32 +398,42 @@ DImage DDynamicProgramming::piecewiseLinearWarpDImage(DImage &img1,
     else{
       imgWarp.fill(255.);
       for(int i=0; i < pathLen; ++i){
-	if(0 == rgPath[i]){
-	  for(int y = 0; y < h; ++y){
-	    p8dst[y*warpToLength+x2] = p8src[y*w+x1];
-	  }
-	  ++x1;
-	  ++x2;
-	}
-	else if(1 == rgPath[i]){//east (stretch)
-	  for(int y = 0; y < h; ++y){
-	    p8dst[y*warpToLength+x2] = p8src[y*w+x1];
-	  }
-	  ++x2;
-	}
-	else if(2 == rgPath[i]){//south (squish!)
-	  for(int y = 0; y < h; ++y){
-	    //use the darker of the color already there vs. new one
-	    if(p8src[y*w+x1] < p8dst[y*warpToLength+x2]){
-	      p8dst[y*warpToLength+x2] = p8src[y*w+x1];
-	    }
-	  }
-	  ++x1;
-	}
-	else{
-	  fprintf(stderr, "logic error! (%s:%d)\n", __FILE__, __LINE__);
-	  exit(1);
-	}
+		if(0 == rgPath[i]){
+		  for(int y = 0; y < h; ++y){
+		    p8dst[y*warpToLength+x2] = p8src[y*w+x1];
+		  }
+		  ++x1;
+		  ++x2;
+		}
+		else if(1 == rgPath[i]){//east (stretch)
+		  for(int y = 0; y < h; ++y){
+		    p8dst[y*warpToLength+x2] = p8src[y*w+x1];
+		  }
+		  ++x2;
+		}
+		else if(2 == rgPath[i]){//south (squish!)
+		  for(int y = 0; y < h; ++y){
+		    //use the darker of the color already there vs. new one
+		    if(p8src[y*w+x1] < p8dst[y*warpToLength+x2]){
+			p8dst[y*warpToLength+x2] = p8src[y*w+x1];
+		    }
+		  }
+		  ++x1;
+		}
+		else{
+		  fprintf(stderr, "logic error! (%s:%d)\n", __FILE__, __LINE__);
+		  exit(1);
+		}
+		if (x1>=w)
+		{
+			//fprintf(stderr, "DP warping out of bounds x1=%d, w=%d (%s:%d)\n",x1,w, __FILE__, __LINE__);
+			x1 = w-1;
+		}
+		if (x2>=warpToLength)
+		{
+			//fprintf(stderr, "DP warping out of bounds x2=%d, warpToLength=%d (%s:%d)\n",x2,warpToLength, __FILE__, __LINE__);
+			x2 = warpToLength-1;
+		}
       }//for i
     }//else
   }
@@ -506,6 +516,16 @@ DImage DDynamicProgramming::piecewiseLinearWarpDImage(DImage &img1,
 			else{
 			  fprintf(stderr, "logic error! (%s:%d)\n", __FILE__, __LINE__);
 			  exit(1);
+			}
+			if (y1>=h)
+			{
+				//fprintf(stderr, "DP warping out of bounds y1=%d, h=%d (%s:%d)\n",y1,h, __FILE__, __LINE__);
+				y1 = h-1;
+			}
+			if (y2>=warpToLength)
+			{
+				//fprintf(stderr, "DP warping out of bounds y2=%d, warpToLength=%d (%s:%d)\n",y2,warpToLength, __FILE__, __LINE__);
+				y2 = warpToLength-1;
 			}
 		}//for i
 	}//else
