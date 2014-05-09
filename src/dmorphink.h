@@ -51,6 +51,7 @@
 class DMorphInk{
 private:
   void setUpMAImg0();
+  void checkFreeMA0Data();
   
 public:
   DMorphInk();

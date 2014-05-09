@@ -87,24 +87,12 @@ DMorphInk::~DMorphInk(){
     free(rgPointsPrevX);
     free(rgPointsPrevY);
   }
-  if(rgMA0X != NULL){
-    free(rgMA0X);
-    free(rgMA0Y);
-    free(rgMA1X);
-    free(rgMA1Y);
-#if NEW_WARP
-    free(rgMA0r);
-    free(rgMA0c);
-    free(rgMA0s);
-    free(rgMA0t);
-    free(rgMA0quadW);
-    free(rgMA0quadH);
-    free(rgTempMA0idx);
-#endif
-    free(rgDPMA0X);
-    free(rgDPMA0Y);
-    free(rgTempMA0X);
-    free(rgTempMA0Y);
+  checkFreeMA0Data();
+  if (rgMA1X != NULL)
+  {
+  	free(rgMA1X);
+	free(rgMA1Y);
+	rgMA1X=NULL;
   }
   rgPoints0X = rgPoints0Y = rgPoints1X = rgPoints1Y =
     rgPointsDPX = rgPointsDPY = rgPointsPrevX = rgPointsPrevY = NULL;
@@ -181,24 +169,12 @@ void DMorphInk::init(const DImage &src0, const DImage &src1, bool fMakeCopies,
   }
 #endif
   //don't leave memory hanging if we call init() more than once:
-  if(rgMA0X != NULL){
-    free(rgMA0X);
-    free(rgMA0Y);
-    free(rgMA1X);
-    free(rgMA1Y);
-#if NEW_WARP
-    free(rgMA0r);
-    free(rgMA0c);
-    free(rgMA0s);
-    free(rgMA0t);
-    free(rgMA0quadW);
-    free(rgMA0quadH);
-    free(rgTempMA0idx);
-#endif
-    free(rgDPMA0X);
-    free(rgDPMA0Y);
-    free(rgTempMA0X);
-    free(rgTempMA0Y);
+  checkFreeMA0Data();
+  if (rgMA1X != NULL)
+  {
+  	free(rgMA1X);
+	free(rgMA1Y);
+	rgMA1X=NULL;
   }
 
   //imgMA0 = imgInk0 = DMedialAxis::getMedialAxisImageFromDistMap(imgDist0,true,
@@ -321,6 +297,8 @@ void DMorphInk::setUpMAImg0()
 
 
 	//make lists of MA0 pixels
+	checkFreeMA0Data();
+	
 	rgMA0X = (double*)malloc(sizeof(double)*(1+lenMA0));
 	D_CHECKPTR(rgMA0X);
 	rgMA0Y = (double*)malloc(sizeof(double)*(1+lenMA0));
@@ -362,6 +340,30 @@ void DMorphInk::setUpMAImg0()
 			}
 		}
 	}
+}
+
+void DMorphInk::checkFreeMA0Data()
+{
+	if(rgMA0X != NULL)
+	{
+	    free(rgMA0X);
+	    free(rgMA0Y);
+	    
+	#if NEW_WARP
+	    free(rgMA0r);
+	    free(rgMA0c);
+	    free(rgMA0s);
+	    free(rgMA0t);
+	    free(rgMA0quadW);
+	    free(rgMA0quadH);
+	    free(rgTempMA0idx);
+	#endif
+	    free(rgDPMA0X);
+	    free(rgDPMA0Y);
+	    free(rgTempMA0X);
+	    free(rgTempMA0Y);
+	    rgMA0X=NULL;
+	}	
 }
 
 
