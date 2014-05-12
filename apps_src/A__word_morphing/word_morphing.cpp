@@ -616,7 +616,7 @@ int main(int argc, char **argv){
 	    
 	    }//end if (slowPassN > 0)
 
-
+	    
 #endif
 	    t2.stop();
 	    printf("took %.02f seconds  numLexReductionWordsSkipped=%d\n", t2.getAccumulated(), numLexReductionWordsSkipped);fflush(stdout);
@@ -694,6 +694,12 @@ int main(int argc, char **argv){
   delete [] rgPagesTest;
   delete [] rgAuthorIdsTrain;
   delete [] rgAuthorIdsTest;
-
+  
+  #if DO_FAST_PASS_FIRST
+  delete [] rgSlowPassMORPHCOST_T;
+  delete [] rgFastPassTopNidxs;
+  delete [] rgSlowPassTopNMorphCosts;
+  #endif
+  
   return 0;
 }

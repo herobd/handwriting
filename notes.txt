@@ -186,8 +186,18 @@ Owning to the need to use the findmorphfast thing, I had to change the preproces
 ./datasets/smith_jhl_vol1_lasso/smith_jhl_vol1_lasso.prj_intermediates/ 0 99 100 199 0.1 1 -1 -1 4.0 14 10 ./tmp/smith_results_DnC.dat
 
 
-(D_uint8 *) 0xdcdd60 "\377\377\377\377\377\377\377\377\3
-(D_uint8 *) 0x6a3bf0 "\377\377\377\377"
-D_uint8 *) 0x6a4210 "\377\377\377\377\377\377\37
-D_uint8 *) 0x6a4b00 "\377\377\377\377\377\377\377
+=====
+8 May
+=====
+I had an off-by-one error occuring in the DP warping when trying my new warp-before method where it would go one step beyond the image boundry. I simply bounded the values as I couldn't find why this was happening. It's obviously something I did.
+
+=====
+9 May
+=====
+Worked in memory issues. Horray for Valgrind!
+
+TODO both projects:
+Check on the valgrind to see if it worked. Once everything's running fine, we need to do an accuracy comparison. I don't know if the data I loaded from the other machine was 1000 sets or 100. It should be rerun if 100. Then my DnC needs run with 1000 (don't forget -O3).
+
+Start entering data from res4/5. One should be reserved from testing. Weka is open. Try discluding data, particularly cut 5 things. 65% is not very good. Maybe try NaiveBaise as well?
 
