@@ -201,3 +201,7 @@ Check on the valgrind to see if it worked. Once everything's running fine, we ne
 
 Start entering data from res4/5. One should be reserved from testing. Weka is open. Try discluding data, particularly cut 5 things. 65% is not very good. Maybe try NaiveBaise as well?
 
+======
+16 May
+======
+Found on problem with DnC is it would stop running refines because the first didn't lead to any better results. Changed it so it would refine 3 times before checking for improvements. This helped some negative cases (comparing to orinal algorithm results), but not others. Bad DP alignments seemed to be another big culpurit.

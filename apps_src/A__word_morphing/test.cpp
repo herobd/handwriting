@@ -39,6 +39,7 @@ int main(int argc, char **argv){
 						-1,
 						4.0,
 						0.1);
+	printf("Cost: %f\n",morphCost);
 	return 1;
 
 }

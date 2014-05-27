@@ -13,7 +13,7 @@
 #include <signal.h>
 
 #define SUBSAMPLE 1
-#define SAVE_IMAGES 0
+#define SAVE_IMAGES 1
 #define NORMALIZE_VERT_PROF 0
 #define USE_DISTANCE_FROM_DP_COST 0
 #define OUTPUT_DEBUG_FINAL_COST 0
@@ -907,7 +907,7 @@ void DMorphInk::morphOneWay(	const DImage &srcFrom,
 	    		double cur_cost = getCost();
 	    
 	    //printf("Testing cost dif: %f\n",last_cost - cur_cost);
-	    		if (last_cost - cur_cost < REFINE_COST_DELTA_CUTOFF) //TODO:(1b) adjust this
+	    		if (last_cost - cur_cost < REFINE_COST_DELTA_CUTOFF && ref>2) //TODO:(1b) adjust this
 	    			break;
 	    		last_cost=cur_cost;
 	    		if (curRowSpacing>2 && curColSpacing>2){//if(ref < numRefinements){
@@ -1046,7 +1046,9 @@ double DMorphInk::getWordMorphCost(const DImage &src0,
   warpCostDPfull += warpCostDP + warpCostDPv;
   warpCostDPhoriz += warpCostDP;
 
-
+#if SAVE_IMAGES
+printf("Cost one way: %f, the other way:%f\n",cost,cost2);
+#endif
   return cost + cost2;
   // return cost;
 }
@@ -1513,8 +1515,15 @@ void DMorphInk::improveMorphOnlyOnNewPoints(){
   if(radiusY<1)
     radiusY = 1;
   // printf("improving morph with radiusX=%d radiusY=%d\n",radiusX, radiusY);
+  //Only on certain control poitns, not on old ones
+  
+  //skip every other
   for(int r=1, idx=1+numPointCols; r < numPointRows; r+=2, idx+=1+numPointCols){
     	for(int c=1; c < numPointCols; c+=2, idx+=2){
+  
+  //only skip used(old) points
+  //for(int r=0, idx=1; r < numPointRows; r++){
+    	//for(int c=1-(r%2); c < numPointCols; c+=2-(r%2), idx+=2-(r%2)){
       	double curControlX, curControlY;//current x,y (in img1) of control point
       	double Vcost;//cost at curControlX,curControlY
       	double bestX, bestY;//best (lowest cost) x,y found so far
