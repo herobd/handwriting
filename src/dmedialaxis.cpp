@@ -2,8 +2,180 @@
 #include "ddistancemap.h"
 #include "dthresholder.h"
 
+
+/**
+	As an alternative to Doug's method using the medail axis, I am 
+	implementing additional thinning algorithms to see if they produce
+	better skeletons.
+	
+	This first is a modification of the Zhang-Suen method proposed by Chen
+	and Hsu in 1988, which supposedly fixes some of the originals flaws.
+	(http://ac.els-cdn.com/0167865588901249/1-s2.0-0167865588901249-main.pdf?_tid=994be7c0-393f-11e4-9f70-00000aacb360&acdnat=1410390784_863de2b56be91cad8f478ed2dd1b7fae)
+	
+	I will try to make this as similar to Doug's as possible, although
+	fThin is currently ignored.
+	Assumes that ink is black (0x00) and any non-zero pixel is background 
+	for source image. Returns an 8-bit grayscale and has 0x00 everywhere 
+	except for the points that have medial axis (on), which will be 0xff.
+**/
+
+//Can be parallelized (with GPU I think)
+DImage DMedialAxis::getMZhangSkeletonFromBinaryImage(DImage &src,
+						  bool fThin, int *numPoints){
+	int w, h;
+	//D_uint8 *p8_src;
+	//D_uint8 *p8_imgs[2];
+	//DImage img1;
+	//DImage img2;
+	DImage imgs[2];
+	if(DImage::DImage_u8 != src.getImageType()){
+		fprintf(stderr, "DMedialAxis::getMZhangSkeletonFromImage() expects an "
+		    "image of type DImage_u8, which is filled with binary data, 0x00 "
+		    "being foreground, all else being background.\n");
+		exit(1);
+	}
+	w = src.width();
+	h = src.height();
+	imgs[0].create(w,h,DImage::DImage_u8);
+	imgs[1].create(w,h,DImage::DImage_u8);
+	//p8_imgs[0] = img1.dataPointer_u8();
+	//p8_imgs[1] = img1.dataPointer_u8();
+	//p8_src = src.dataPointer_u8();
+	
+	//set up first image
+	for (int x=0; x<w; x++){
+		for (int y=0; y<h; y++){
+			setBPixel(imgs[0],x,y,!isOn(src,x,y));//invert as input data is different
+		}
+	}
+	
+	int k = 0;
+	int s = 1;
+	bool flag=true;
+	int count;
+	while (flag){
+		count=0;
+		flag=false;
+		for (int x=0; x<w; x++){
+			for (int y=0; y<h; y++){
+				if (isOn(imgs[k],x,y)){
+					int B_P1 = neighborOnCount(imgs[k],x,y);
+					int A_P1 = neighborOffToOnTransitionCount(imgs[k],x,y);
+					if (k==0){
+						
+						bool d=(2 <= B_P1 && B_P1 <=7 &&			//a
+							  A_P1 == 1 &&					//b
+							  !(isOn(imgs[k],x,y-1) && isOn(imgs[k],x+1,y) && 
+							  isOn(imgs[k],x,y+1)) && 			//c
+							  !(isOn(imgs[k],x-1,y) && isOn(imgs[k],x+1,y) && 
+							  isOn(imgs[k],x,y+1)))				//d
+							 ||
+							 (A_P1 == 2 &&					//e
+							  isOn(imgs[k],x,y-1) && isOn(imgs[k],x+1,y) && 
+							  !isOn(imgs[k],x,y+1) && !isOn(imgs[k],x-1,y+1) && 
+							  !isOn(imgs[k],x-1,y) &&			//f
+							  isOn(imgs[k],x+1,y) && isOn(imgs[k],x,y+1) && 
+							  !isOn(imgs[k],x,y-1) && !isOn(imgs[k],x-1,y) && 
+							  !isOn(imgs[k],x-1,y-1));			//g
+						setBPixel(imgs[s],x,y,d);
+						if (d)
+							count++;
+						else
+							flag=true;
+							
+					}
+					else{
+						
+						bool d=(2 <= B_P1 && B_P1 <=7 &&			//a
+							  A_P1 == 1 &&					//b
+							  !(isOn(imgs[k],x,y-1) && isOn(imgs[k],x+1,y) && 
+							  isOn(imgs[k],x-1,y)) && 			//c'
+							  !(isOn(imgs[k],x,y-1) && isOn(imgs[k],x-1,y) && 
+							  isOn(imgs[k],x,y+1)))				//d'
+							 ||
+							 (A_P1 == 2 &&					//e
+							  isOn(imgs[k],x,y-1) && isOn(imgs[k],x-1,y) && 
+							  !isOn(imgs[k],x+1,y) && !isOn(imgs[k],x+1,y+1) && 
+							  !isOn(imgs[k],x,y+1) &&			//f'
+							  isOn(imgs[k],x-1,y) && isOn(imgs[k],x,y+1) && 
+							  !isOn(imgs[k],x,y-1) && !isOn(imgs[k],x+1,y-1) && 
+							  !isOn(imgs[k],x+1,y));			//g'
+						setBPixel(imgs[s],x,y,d);
+						if (d)
+							count++;
+						else
+							flag=true;
+							
+					}
+				}
+				else{
+					setBPixel(imgs[s],x,y,false);
+				}
+			}
+		}
+		
+		k = (k+1)%2;
+		s = (s+1)%2;
+	}
+	*numPoints=count;
+	
+	imgs[k].save("./tmp/debug_images/zhang.ppm");
+	
+	return imgs[k];
+}
+
+int DMedialAxis::neighborOffToOnTransitionCount(const DImage &img, int x, int y){
+	int count=0;
+	
+	if (!isOn(img,x,y-1) && isOn(img,x+1,y-1)) count++;
+	else if (!isOn(img,x+1,y-1) && isOn(img,x+1,y)) count++;
+	if (!isOn(img,x+1,y) && isOn(img,x+1,y+1)) count++;
+	else if (!isOn(img,x+1,y+1) && isOn(img,x,y+1)) count++;
+	if (!isOn(img,x,y+1) && isOn(img,x-1,y+1)) count++;
+	else if (!isOn(img,x-1,y+1) && isOn(img,x-1,y)) count++;
+	if (!isOn(img,x-1,y) && isOn(img,x-1,y-1)) count++;
+	else if (!isOn(img,x-1,y-1) && isOn(img,x,y-1)) count++;
+	
+	return count;
+}
+
+int DMedialAxis::neighborOnCount(const DImage &img, int x, int y){
+	int count=0;
+	
+	if (isOn(img,x,y-1)) count++;
+	if (isOn(img,x+1,y-1)) count++;
+	if (isOn(img,x+1,y)) count++;
+	if (isOn(img,x+1,y+1)) count++;
+	if (isOn(img,x,y+1)) count++;
+	if (isOn(img,x-1,y+1)) count++;
+	if (isOn(img,x-1,y)) count++;
+	if (isOn(img,x-1,y-1)) count++;
+	
+	return count;
+}
+
+bool DMedialAxis::isOn(const DImage &img, int x, int y){
+	const D_uint8 *p8_img = img.dataPointer_u8();
+	if (x>=0 && y>=0 && x<img.width() && y<img.height()){
+		int idx=x+y*img.width();
+		return 0x00 != p8_img[idx];
+	}
+	else{
+		return false;
+	}
+}
+
+void DMedialAxis::setBPixel(DImage &img, int x, int y, bool on){
+	D_uint8 *p8_img = img.dataPointer_u8();
+	if (x>=0 && y>=0 && x<img.width() && y<img.height()){
+		int idx=x+y*img.width();
+		p8_img[idx] = on ? 0xFF : 0x00;
+	}
+}
+
+
 /**Assumes the input is a distance map found with DDistanceMap.
-   Returns an8-bit grayscale and has 0x00 everywhere except for the
+   Returns an 8-bit grayscale and has 0x00 everywhere except for the
    points that have medial axis, which will be 0xff.  The medial axis
    is found by finding local minima in the distance map (negative
    points that have no neighbors that are "more negative" than the
@@ -162,6 +334,9 @@ DImage DMedialAxis::getMedialAxisImageFromDistMap(DImage &imgDistMap,
   }
   if(NULL != numPoints)
     (*numPoints) = numPxls;
+    
+  imgMA.save("./tmp/debug_images/MA.ppm");
+    
   return imgMA;
 }
 

@@ -180,6 +180,7 @@ void DMorphInk::init(const DImage &src0, const DImage &src1, bool fMakeCopies,
   //imgMA0 = imgInk0 = DMedialAxis::getMedialAxisImageFromDistMap(imgDist0,true,
   //								&lenMA0);
   imgMA1 = DMedialAxis::getMedialAxisImageFromDistMap(imgDist1,true,&lenMA1);
+  imgMA1 = DMedialAxis::getMZhangSkeletonFromBinaryImage(*pimg1,true,&lenMA1);
 #if SAVE_IMAGES
   printf("saving /tmp/medial_axis1.pgm\n");
   imgMA1.save("/tmp/medial_axis1.pgm");
@@ -289,6 +290,8 @@ void DMorphInk::setUpMAImg0()
 	h0 = pimg0->height();
 	DDistanceMap::getDistFromInkBitonal_(imgDist0, *pimg0,1000,-1000);
 	imgMA0 = imgInk0 = DMedialAxis::getMedialAxisImageFromDistMap(imgDist0,true,
+								&lenMA0);
+	imgMA0 = imgInk0 = DMedialAxis::getMZhangSkeletonFromBinaryImage(*pimg0,true,
 								&lenMA0);
 	#if SAVE_IMAGES
 	printf("saving /tmp/medial_axis0.pgm\n");
